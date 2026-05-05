@@ -227,26 +227,90 @@ button:disabled:active { background: #000; color: var(--dq-text); }
 .confirm-btns button { flex: 1; }
 
 /* トースト */
-.toast {
+#toast-root {
   position: fixed;
   left: 50%;
   bottom: 20px;
   transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+  align-items: center;
+  pointer-events: none;
+}
+.toast {
   background: #000;
   border: 2px solid var(--dq-yellow);
   color: var(--dq-yellow);
   padding: 10px 18px;
   border-radius: 8px;
   font-size: 16px;
-  z-index: 200;
   animation: toastIn 0.3s ease-out;
   max-width: 90vw;
   text-align: center;
   white-space: pre-wrap;
+  pointer-events: auto;
 }
+.toast.toast-trophy { border-color: var(--dq-green); color: var(--dq-green); }
 @keyframes toastIn {
-  from { opacity: 0; transform: translate(-50%, 20px); }
-  to   { opacity: 1; transform: translate(-50%, 0); }
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ふりかえり */
+.review-stat-row {
+  display: flex;
+  gap: 8px;
+  padding: 5px 6px;
+  align-items: center;
+  font-size: 14px;
+}
+.review-stat-row .label { flex: 1; }
+.review-stat-row .value { font-feature-settings: "tnum"; }
+.review-total {
+  border-top: 2px solid var(--dq-yellow);
+  margin-top: 6px;
+  padding-top: 6px;
+  color: var(--dq-yellow);
+  font-weight: bold;
+}
+.month-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.month-row.month-current .month-label,
+.month-row.month-current .month-value { color: var(--dq-yellow); font-weight: bold; }
+.month-row .month-label { width: 60px; flex-shrink: 0; }
+.month-row .month-bar {
+  flex: 1; height: 12px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+.month-row .month-bar .fill {
+  position: absolute; top:0; left:0; bottom:0;
+  background: var(--dq-yellow);
+}
+.month-row .month-value {
+  width: 90px; text-align: right;
+  color: var(--dq-dim);
+  flex-shrink: 0;
+}
+
+/* 進捗バー (今週・今月) */
+.progress-mini {
+  font-size: 12px;
+  color: var(--dq-dim);
+  margin-top: 2px;
+}
+.progress-mini .next {
+  color: var(--dq-yellow);
 }
 
 .small { font-size: 13px; color: var(--dq-dim); }
@@ -254,6 +318,37 @@ button:disabled:active { background: #000; color: var(--dq-text); }
 .mt8 { margin-top: 8px; }
 .mt12 { margin-top: 12px; }
 .hidden { display: none !important; }
+
+/* アイテムずかん */
+.collection-section { margin: 14px 0; }
+.collection-section .section-title {
+  font-size: 16px;
+  color: var(--dq-yellow);
+  margin-bottom: 8px;
+  border-bottom: 1px dashed #444;
+  padding-bottom: 4px;
+}
+.subj-block { margin-bottom: 12px; }
+.subj-block-title {
+  font-size: 14px;
+  color: var(--dq-blue);
+  margin-bottom: 4px;
+}
+.item-row {
+  display: flex;
+  gap: 8px;
+  padding: 5px 6px;
+  align-items: center;
+  font-size: 14px;
+  border-bottom: 1px dashed #222;
+}
+.item-row .item-icon { width: 1.5em; text-align: center; }
+.item-row .item-name { flex: 1; }
+.item-row .item-info { font-size: 12px; color: var(--dq-dim); }
+.item-locked { opacity: 0.4; }
+.item-locked .item-name { color: #888; }
+.item-current { color: var(--dq-yellow); }
+.item-current .item-name::after { content: ' (そうび中)'; font-size: 11px; color: var(--dq-yellow); }
 </style>
 </head>
 <body>
@@ -278,6 +373,14 @@ button:disabled:active { background: #000; color: var(--dq-text); }
       <div class="label">そう勉強時間</div>
       <div class="value" id="total-time">0時間 0分</div>
     </div>
+    <div>
+      <div class="label">こんしゅう</div>
+      <div class="value" id="this-week">0分</div>
+    </div>
+    <div>
+      <div class="label">こんげつ</div>
+      <div class="value" id="this-month">0分</div>
+    </div>
   </div>
 </div>
 
@@ -298,7 +401,11 @@ button:disabled:active { background: #000; color: var(--dq-text); }
     <div class="item"><span class="label">ぜんかい べんきょうした 日</span><span id="last-date">- - -</span></div>
   </div>
   <div class="row mt12">
-    <button id="btn-rename" class="btn-yellow">なまえへんこう</button>
+    <button id="btn-items" class="btn-yellow" style="flex:1;">⚔ アイテム ずかん</button>
+    <button id="btn-review" class="btn-yellow" style="flex:1;">📊 ふりかえり</button>
+  </div>
+  <div class="row mt12">
+    <button id="btn-rename">なまえへんこう</button>
     <button id="btn-reset" class="btn-red">リセット</button>
   </div>
 </div>
@@ -537,6 +644,8 @@ function defaultState() {
       social:   { totalMin: 0, bankedSec: 0, defeated: [] },
     },
     history: { lastStudyAt: 0, lastSessionSec: 0 },
+    daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social }
+    trophies: [],  // [{type:'weekly'|'monthly', tier:1-3, period, gold, date}]
   };
 }
 
@@ -635,6 +744,13 @@ function awardMinutes(subj, mins) {
   const before = levelOf(subj);
   state.subjects[subj].totalMin += mins;
   state.gold += mins;
+
+  // 日次記録
+  const today = todayKey();
+  if (!state.daily[today]) state.daily[today] = { math:0, japanese:0, science:0, social:0 };
+  state.daily[today][subj] += mins;
+
+  // レベルアップ
   const after = levelOf(subj);
   if (after > before) {
     const gainedLevels = after - before;
@@ -643,6 +759,235 @@ function awardMinutes(subj, mins) {
     const w = currentWeapon(subj);
     showToast(`${SUBJECT_INFO[subj].name}の レベルが ${after} に あがった！\n${bonus}G ボーナス！\n武器: ${w.name}`);
   }
+
+  // 週・月のしきい値チェック
+  checkThresholds();
+}
+
+// ============================================================
+// 振り返り・しきい値・トロフィー
+// ============================================================
+
+const WEEKLY_TIERS = [
+  { tier: 1, mins:  300, gold:  100, emoji: '🥉', label: 'ブロンズ' },
+  { tier: 2, mins:  600, gold:  200, emoji: '🥈', label: 'シルバー' },
+  { tier: 3, mins: 1200, gold:  500, emoji: '🥇', label: 'ゴールド' },
+];
+const MONTHLY_TIERS = [
+  { tier: 1, mins: 1500, gold:  500, emoji: '🥉', label: 'ブロンズ' },
+  { tier: 2, mins: 3000, gold: 1000, emoji: '🥈', label: 'シルバー' },
+  { tier: 3, mins: 6000, gold: 2000, emoji: '🥇', label: 'ゴールド' },
+];
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function dateKeyOf(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function todayKey() { return dateKeyOf(new Date()); }
+function monthKey(d = new Date()) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
+// その週の月曜日(ローカル)を 'YYYY-MM-DD' で返す
+function weekKey(d = new Date()) {
+  const x = new Date(d);
+  x.setHours(0,0,0,0);
+  const dow = x.getDay(); // 0=日, 1=月, ... 6=土
+  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+  x.setDate(x.getDate() + diffToMonday);
+  return dateKeyOf(x);
+}
+
+function dayTotalSubj(dateKey) {
+  const day = state.daily[dateKey];
+  if (!day) return { math:0, japanese:0, science:0, social:0, total:0 };
+  return { ...day, total: day.math + day.japanese + day.science + day.social };
+}
+
+function weekStatsBySubject(weekStart = weekKey()) {
+  const start = new Date(weekStart + 'T00:00:00');
+  const out = { math:0, japanese:0, science:0, social:0, total:0 };
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const ds = dayTotalSubj(dateKeyOf(d));
+    out.math += ds.math; out.japanese += ds.japanese;
+    out.science += ds.science; out.social += ds.social;
+    out.total += ds.total;
+  }
+  return out;
+}
+
+function monthTotalMin(mk = monthKey()) {
+  let total = 0;
+  for (const [date, day] of Object.entries(state.daily)) {
+    if (date.startsWith(mk + '-')) {
+      total += (day.math + day.japanese + day.science + day.social);
+    }
+  }
+  return total;
+}
+
+function monthStatsBySubject(mk = monthKey()) {
+  const out = { math:0, japanese:0, science:0, social:0, total:0 };
+  for (const [date, day] of Object.entries(state.daily)) {
+    if (date.startsWith(mk + '-')) {
+      out.math += day.math; out.japanese += day.japanese;
+      out.science += day.science; out.social += day.social;
+      out.total += (day.math + day.japanese + day.science + day.social);
+    }
+  }
+  return out;
+}
+
+function hasTrophy(type, tier, period) {
+  return state.trophies.some(t => t.type === type && t.tier === tier && t.period === period);
+}
+function awardTrophy(type, tierObj, period, periodLabel) {
+  state.trophies.push({
+    type, tier: tierObj.tier, period,
+    gold: tierObj.gold, date: Date.now(),
+  });
+  state.gold += tierObj.gold;
+  const kindLabel = type === 'weekly' ? '週' : '月';
+  showToast(
+    `✨サプライズ！✨\n${periodLabel}\n${tierObj.emoji} ${kindLabel}のトロフィー (${tierObj.label})\n+${tierObj.gold}G`,
+    { trophy: true }
+  );
+}
+
+function checkThresholds() {
+  // 今週
+  const wk = weekKey();
+  const weekly = weekStatsBySubject(wk).total;
+  const wkLabel = `${wk.replace(/-/g,'/')} 〜 の週`;
+  for (const tier of WEEKLY_TIERS) {
+    if (weekly >= tier.mins && !hasTrophy('weekly', tier.tier, wk)) {
+      awardTrophy('weekly', tier, wk, wkLabel);
+    }
+  }
+  // 今月
+  const mk = monthKey();
+  const monthly = monthTotalMin(mk);
+  const mkLabel = `${mk.slice(0,4)}年${parseInt(mk.slice(5),10)}月`;
+  for (const tier of MONTHLY_TIERS) {
+    if (monthly >= tier.mins && !hasTrophy('monthly', tier.tier, mk)) {
+      awardTrophy('monthly', tier, mk, mkLabel);
+    }
+  }
+}
+
+function computeMonthlyTotals(monthsBack = 12) {
+  // 新しい順 (今月→11か月前)
+  const result = [];
+  const now = new Date();
+  for (let i = 0; i < monthsBack; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = monthKey(d);
+    const total = monthTotalMin(key);
+    result.push({
+      key,
+      total,
+      label: `${d.getFullYear().toString().slice(2)}/${pad2(d.getMonth()+1)}`,
+    });
+  }
+  return result;
+}
+
+function nextWeeklyTier(curMin) {
+  for (const t of WEEKLY_TIERS) if (curMin < t.mins) return t;
+  return null;
+}
+function nextMonthlyTier(curMin) {
+  for (const t of MONTHLY_TIERS) if (curMin < t.mins) return t;
+  return null;
+}
+
+function showReflection() {
+  const root = document.getElementById('modal-root');
+  const wkStart = weekKey();
+  const w = weekStatsBySubject(wkStart);
+  const monthStr = `${new Date().getFullYear()}年${new Date().getMonth()+1}月`;
+  const months = computeMonthlyTotals(12);
+  const max = Math.max(1, ...months.map(m => m.total));
+  const curMonthKey = monthKey();
+
+  const subjRows = SUBJECTS.map(s => `
+    <div class="review-stat-row">
+      <span class="item-icon">${SUBJECT_INFO[s].emoji}</span>
+      <span class="label">${SUBJECT_INFO[s].name}</span>
+      <span class="value">${w[s]}分</span>
+    </div>
+  `).join('');
+
+  const barRows = months.map(m => {
+    const widthPct = (m.total / max) * 100;
+    const isCur = m.key === curMonthKey;
+    return `
+      <div class="month-row${isCur ? ' month-current' : ''}">
+        <span class="month-label">${m.label}</span>
+        <div class="month-bar"><div class="fill" style="width:${widthPct}%"></div></div>
+        <span class="month-value">${m.total > 0 ? fmtDuration(m.total*60) : '0分'}</span>
+      </div>
+    `;
+  }).join('');
+
+  // 今週のしきい値進捗
+  const weekTotal = w.total;
+  const nextWk = nextWeeklyTier(weekTotal);
+  const wkProgress = nextWk
+    ? `次の ${nextWk.emoji}${nextWk.label} まで あと ${nextWk.mins - weekTotal}分`
+    : `今週は すべて 達成！🎉`;
+
+  // 今月のしきい値進捗
+  const m = monthStatsBySubject(curMonthKey);
+  const monthlyTotal = m.total;
+  const nextMo = nextMonthlyTier(monthlyTotal);
+  const moProgress = nextMo
+    ? `次の ${nextMo.emoji}${nextMo.label} まで あと ${nextMo.mins - monthlyTotal}分`
+    : `今月は すべて 達成！🎉`;
+  const monthSubjRows = SUBJECTS.map(s => `
+    <div class="review-stat-row">
+      <span class="item-icon">${SUBJECT_INFO[s].emoji}</span>
+      <span class="label">${SUBJECT_INFO[s].name}</span>
+      <span class="value">${m[s]}分</span>
+    </div>
+  `).join('');
+
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="max-width:600px;">
+        <div class="panel-title center">▼ ふりかえり</div>
+
+        <div class="collection-section">
+          <div class="section-title">📅 こんしゅう (${wkStart.replace(/-/g,'/')} 〜)</div>
+          ${subjRows}
+          <div class="review-stat-row review-total">
+            <span class="item-icon">合</span>
+            <span class="label">ごうけい</span>
+            <span class="value">${weekTotal}分 (${fmtDuration(weekTotal*60)})</span>
+          </div>
+          <div class="progress-mini"><span class="next">${wkProgress}</span></div>
+        </div>
+
+        <div class="collection-section">
+          <div class="section-title">📅 こんげつ (${monthStr})</div>
+          ${monthSubjRows}
+          <div class="review-stat-row review-total">
+            <span class="item-icon">合</span>
+            <span class="label">ごうけい</span>
+            <span class="value">${monthlyTotal}分 (${fmtDuration(monthlyTotal*60)})</span>
+          </div>
+          <div class="progress-mini"><span class="next">${moProgress}</span></div>
+        </div>
+
+        <div class="collection-section">
+          <div class="section-title">📊 12かげつ グラフ</div>
+          ${barRows}
+        </div>
+
+        <div class="confirm-btns">
+          <button id="rev-close">とじる</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('rev-close').onclick = closeModal;
 }
 
 const T = {
@@ -776,6 +1121,10 @@ function render(rerenderAll = true) {
   document.getElementById('gold').textContent = state.gold;
   document.getElementById('total-level').textContent = totalLevel();
   document.getElementById('total-time').textContent = fmtDuration(totalMinutes() * 60);
+  const wkTotal = weekStatsBySubject().total;
+  const moTotal = monthTotalMin();
+  document.getElementById('this-week').textContent = wkTotal + '分';
+  document.getElementById('this-month').textContent = moTotal + '分';
 
   // タイマー領域
   renderTimerArea();
@@ -1130,17 +1479,130 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-let toastTimer = null;
-function showToast(msg) {
+function showToast(msg, opts = {}) {
   const root = document.getElementById('toast-root');
-  root.innerHTML = `<div class="toast">${escapeHtml(msg)}</div>`;
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => root.innerHTML = '', 2800);
+  const el = document.createElement('div');
+  el.className = 'toast' + (opts.trophy ? ' toast-trophy' : '');
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(() => el.remove(), opts.trophy ? 4500 : 2800);
 }
 
 // ============================================================
 // メニュー操作
 // ============================================================
+
+document.getElementById('btn-items').addEventListener('click', showCollection);
+document.getElementById('btn-review').addEventListener('click', showReflection);
+
+function showCollection() {
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="max-width:600px;">
+        <div class="panel-title center">▼ アイテム ずかん</div>
+
+        <div class="collection-section">
+          <div class="section-title">⚔ ぶき コレクション</div>
+          ${SUBJECTS.map(renderWeaponList).join('')}
+        </div>
+
+        <div class="collection-section">
+          <div class="section-title">🏆 トロフィー（たおしたボス）</div>
+          ${SUBJECTS.map(renderTrophyList).join('')}
+        </div>
+
+        ${renderEarnedSurpriseTrophies()}
+
+        <div class="confirm-btns">
+          <button id="col-close">とじる</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('col-close').onclick = closeModal;
+}
+
+function renderWeaponList(subj) {
+  const lv = levelOf(subj);
+  const cur = currentWeapon(subj);
+  const info = SUBJECT_INFO[subj];
+  const items = WEAPONS[subj].map(w => {
+    const got = lv >= w.lv;
+    const isCur = got && w.name === cur.name;
+    let cls = '';
+    if (!got) cls = 'item-locked';
+    else if (isCur) cls = 'item-current';
+    return `
+      <div class="item-row ${cls}">
+        <span class="item-icon">${got ? '⚔' : '🔒'}</span>
+        <span class="item-name">${got ? escapeHtml(w.name) : '？？？'}</span>
+        <span class="item-info">${got ? `Lv${w.lv}〜` : `Lv${w.lv}で てにいれる`}</span>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div class="subj-block">
+      <div class="subj-block-title">${info.emoji} ${info.name}</div>
+      ${items}
+    </div>
+  `;
+}
+
+function renderEarnedSurpriseTrophies() {
+  if (!state.trophies || state.trophies.length === 0) {
+    return `
+      <div class="collection-section">
+        <div class="section-title">🏅 サプライズ トロフィー</div>
+        <div class="small">まだ ない。週300分・月1500分で もらえるよ！</div>
+      </div>
+    `;
+  }
+  // 新しい順
+  const sorted = [...state.trophies].sort((a, b) => b.date - a.date);
+  const items = sorted.map(t => {
+    const tierObj = (t.type === 'weekly' ? WEEKLY_TIERS : MONTHLY_TIERS).find(x => x.tier === t.tier);
+    const periodLabel = t.type === 'weekly'
+      ? `${t.period.replace(/-/g,'/')}〜の週`
+      : `${t.period.slice(0,4)}年${parseInt(t.period.slice(5),10)}月`;
+    const kindLabel = t.type === 'weekly' ? '週' : '月';
+    return `
+      <div class="item-row">
+        <span class="item-icon">${tierObj.emoji}</span>
+        <span class="item-name">${kindLabel}のトロフィー (${tierObj.label})</span>
+        <span class="item-info">${periodLabel}　+${t.gold}G</span>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div class="collection-section">
+      <div class="section-title">🏅 サプライズ トロフィー (${state.trophies.length}こ)</div>
+      ${items}
+    </div>
+  `;
+}
+
+function renderTrophyList(subj) {
+  const info = SUBJECT_INFO[subj];
+  const defeated = state.subjects[subj].defeated;
+  const items = BOSSES[subj].map(b => {
+    const got = defeated.includes(b.id);
+    const cls = got ? '' : 'item-locked';
+    return `
+      <div class="item-row ${cls}">
+        <span class="item-icon">${got ? '🏆' : '？'}</span>
+        <span class="item-name">${got ? escapeHtml(b.name) : '？？？'}</span>
+        <span class="item-info">${got ? `たおした！+${b.gold}G` : `Lv${b.lv}で 出現`}</span>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div class="subj-block">
+      <div class="subj-block-title">${info.emoji} ${info.name}</div>
+      ${items}
+    </div>
+  `;
+}
 
 document.getElementById('btn-rename').addEventListener('click', () => {
   showPrompt('なまえを いれてください', state.hero.name || 'ゆうしゃ', name => {
