@@ -632,8 +632,8 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
   </div>
   <div class="bgm-row">
     <span class="bgm-label">音量</span>
-    <input type="range" id="bgm-volume" min="0" max="100" step="5" value="50">
-    <span class="bgm-value" id="bgm-volume-label">50%</span>
+    <input type="range" id="bgm-volume" min="0" max="100" step="5" value="5">
+    <span class="bgm-value" id="bgm-volume-label">5%</span>
   </div>
   <div class="row mt12">
     <button id="btn-rename">なまえへんこう</button>
@@ -878,8 +878,8 @@ function defaultState() {
     daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social }
     trophies: [],  // [{type:'weekly'|'monthly', tier:1-3, period, gold, date}]
     bgm:      {
-      enabled: false,
-      volume: 50,
+      enabled: true,
+      volume: 5,
       subjects: { math: false, japanese: false, science: false, social: false },
     },
   };
