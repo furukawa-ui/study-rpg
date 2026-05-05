@@ -1672,6 +1672,7 @@ function tStart(subj) {
   T.sessionMs = carrySec * 1000; // 表示は「今回の勉強時間」: 端数も含めるとうれしい
   T.segStartedAt = Date.now();
   T.lastTickAt = Date.now();
+  T.lastConfirmAt = Date.now();
   T.running = true;
   T.paused = false;
   T.intervalId = setInterval(tTick, 500);
@@ -1688,6 +1689,7 @@ function tPause() {
   if (T.intervalId) clearInterval(T.intervalId);
   T.intervalId = null;
   pauseBgm();
+  clearStudyConfirm();
   render();
 }
 
@@ -1695,6 +1697,7 @@ function tResume() {
   if (!T.paused) return;
   T.segStartedAt = Date.now();
   T.lastTickAt = Date.now();
+  T.lastConfirmAt = Date.now();
   T.running = true;
   T.paused = false;
   T.intervalId = setInterval(tTick, 500);
@@ -1717,9 +1720,10 @@ function tStop() {
   if (T.intervalId) clearInterval(T.intervalId);
   T.running = false; T.paused = false; T.subject = null;
   T.segStartedAt = null; T.bankedMs = 0; T.sessionMs = 0;
-  T.intervalId = null; T.lastTickAt = 0;
+  T.intervalId = null; T.lastTickAt = 0; T.lastConfirmAt = null;
   stopBattleLoop();
   stopBgm();
+  clearStudyConfirm();
   render();
 }
 
@@ -1746,6 +1750,82 @@ function tTick() {
   T.lastTickAt = Date.now();
   tCommit();
   render(false);
+  // ストップ押し忘れ確認 (40分ごと)
+  maybeShowStudyConfirm();
+}
+
+// ============================================================
+// ストップ押し忘れ確認
+// ============================================================
+
+const CONFIRM_INTERVAL_MS = 40 * 60 * 1000; // 40分ごとに確認
+const AUTO_STOP_DELAY_MS  =  5 * 60 * 1000; // 5分反応なしで自動ストップ
+let confirmShown  = false;
+let autoStopTimer = null;
+
+function maybeShowStudyConfirm() {
+  if (confirmShown) return;
+  if (!T.lastConfirmAt) return;
+  if (Date.now() - T.lastConfirmAt < CONFIRM_INTERVAL_MS) return;
+  showStudyConfirm();
+}
+
+function showStudyConfirm() {
+  if (confirmShown) return;
+  confirmShown = true;
+
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="text-align:center; max-width:440px;">
+        <div class="panel-title">⏰ かくにん</div>
+        <div style="font-size:18px; margin:18px 8px; line-height:1.7; color: var(--dq-yellow);">
+          ⏱ 40分 たったよ！\nまだ 勉強中？
+        </div>
+        <div class="small" style="margin: 8px 0;">
+          5分 へんじが ないと じどうで ストップするよ
+        </div>
+        <div class="confirm-btns">
+          <button id="study-yes" class="btn-green" style="flex:1;">はい！つづける</button>
+          <button id="study-no"  class="btn-red"   style="flex:1;">もうおしまい</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const dismiss = () => {
+    confirmShown = false;
+    if (autoStopTimer) clearTimeout(autoStopTimer);
+    autoStopTimer = null;
+    closeModal();
+  };
+
+  document.getElementById('study-yes').onclick = () => {
+    T.lastConfirmAt = Date.now();
+    dismiss();
+    showToast('OK！がんばってね');
+  };
+  document.getElementById('study-no').onclick = () => {
+    dismiss();
+    tStop();
+  };
+
+  autoStopTimer = setTimeout(() => {
+    if (confirmShown) {
+      dismiss();
+      tStop();
+      showToast('お返事がなかったので\nじどうで ストップしたよ');
+    }
+  }, AUTO_STOP_DELAY_MS);
+}
+
+function clearStudyConfirm() {
+  if (confirmShown) {
+    confirmShown = false;
+    closeModal();
+  }
+  if (autoStopTimer) clearTimeout(autoStopTimer);
+  autoStopTimer = null;
 }
 
 // ============================================================
