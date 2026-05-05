@@ -494,6 +494,17 @@ img.battle-enemy {
   100% { opacity: 0; transform: translate(0, -70px) scale(1.0); }
 }
 
+/* ねぎらいメッセージ */
+.encouragement {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--dq-yellow);
+  margin: 18px 8px 8px;
+  white-space: pre-wrap;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
 /* BGM パネル */
 .bgm-row {
   display: flex;
@@ -622,6 +633,9 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
   <div class="menu-section">
     <div class="item"><span class="label">ぜんかいの 勉強</span><span id="last-session">- - -</span></div>
     <div class="item"><span class="label">ぜんかい べんきょうした 日</span><span id="last-date">- - -</span></div>
+  </div>
+  <div class="row mt12">
+    <button id="btn-end-day" class="btn-green" style="flex:1; font-size:18px; padding:14px;">🌙 本日の勉強を終了する</button>
   </div>
   <div class="row mt12">
     <button id="btn-items" class="btn-yellow" style="flex:1;">⚔ アイテム ずかん</button>
@@ -1137,6 +1151,97 @@ function nextWeeklyTier(curMin) {
 function nextMonthlyTier(curMin) {
   for (const t of MONTHLY_TIERS) if (curMin < t.mins) return t;
   return null;
+}
+
+// ============================================================
+// 本日の勉強を終了
+// ============================================================
+
+const ENCOURAGEMENT_MESSAGES = [
+  '今日もがんばったね！\nお疲れさま。',
+  '集中した時間は宝物。\nよくやったね。',
+  '勇者は今日も強くなった！\nゆっくり休もう。',
+  '毎日コツコツが力になる。\n今日もえらい！',
+  '一歩ずつ前に進んでるね。\nその歩みは確かだよ。',
+  '今日の積み重ねが\n未来をつくる。',
+  '努力する姿はかっこいい。\n胸を張って眠ろう。',
+  '君の成長が見えるよ。\nまた明日！',
+  '続けることが いちばん難しい。\nそれができてる君はすごい。',
+  'サボりたい気持ちに勝った！\nそれが本当の強さ。',
+  '今日の経験値は\n明日への力になる。',
+  'こつこつ続ける君は\nいちばん強い。',
+  '「やった」が「できる」に変わる瞬間が\nきっと来る。',
+  '1ページ進めば、\n1ページぶん賢くなる。',
+  '苦手も今日のおかげで\nちょっと縮んだはず。',
+  '今日は勇者として\n戦い抜いた！',
+  '一日のおわりに胸を張れる、\nそれってすごいこと。',
+  '君の努力、ちゃんと見てるよ。\nまた明日も応援してる！',
+  '焦らず、たゆまず。\n今日もえらかった。',
+  '学ぶたびに、\n世界が広がってるよ。',
+  '「わからない」が「わかる」に変わる、\nそれが勉強の魔法！',
+  '寝る前に「今日できたこと」を\nひとつ思い出してみよう。',
+  'がんばった分、\nぐっすり眠れるよ。',
+  '中学受験は長い旅。\n今日の一歩は大きい一歩。',
+  'また明日、\n強くなった君に会える。',
+  'お風呂に入って早く寝よう。\n明日もパワー満タン！',
+  '努力は裏切らない。\n今日も信じて続けたね。',
+  '君のがんばりは、\nおうちの誇りだよ。',
+  'やる気スイッチは\n君が押してる。すごい！',
+  '勇者よ、今日の冒険\nおつかれさま。',
+  '鬼や魔物だけじゃなく、\n自分にも勝った日。',
+  '今日のキミに、はなまる💮',
+  '小さな一歩を\n毎日続けるのが本物の強さ。',
+  '夢に向かって、\n今日もちゃんと進めたね。',
+  '勉強した時間は、\nぜんぶ自分の力になる。',
+];
+
+function dayOfYear(d = new Date()) {
+  const start = new Date(d.getFullYear(), 0, 0);
+  const diff = (d - start) + ((start.getTimezoneOffset() - d.getTimezoneOffset()) * 60000);
+  return Math.floor(diff / 86400000);
+}
+
+function showEndDay() {
+  // タイマーが動いてたら止める
+  if (T.running || T.paused) tStop();
+
+  const idx = (dayOfYear() + new Date().getFullYear()) % ENCOURAGEMENT_MESSAGES.length;
+  const message = ENCOURAGEMENT_MESSAGES[idx];
+
+  const today = state.daily[todayKey()] || {math:0, japanese:0, science:0, social:0};
+  const totalMin = today.math + today.japanese + today.science + today.social;
+  const dateStr = `${new Date().getFullYear()}年${new Date().getMonth()+1}月${new Date().getDate()}日`;
+
+  const subjRows = SUBJECTS.map(s => `
+    <div class="review-stat-row">
+      <span class="item-icon">${SUBJECT_INFO[s].emoji}</span>
+      <span class="label">${SUBJECT_INFO[s].name}</span>
+      <span class="value">${today[s]}分</span>
+    </div>
+  `).join('');
+
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="max-width:520px; text-align:center;">
+        <div class="panel-title">▼ ${dateStr} のおわり</div>
+        <div class="encouragement">${escapeHtml(message)}</div>
+        <div class="collection-section">
+          <div class="section-title">📚 今日の勉強</div>
+          ${subjRows}
+          <div class="review-stat-row review-total">
+            <span class="item-icon">合</span>
+            <span class="label">ごうけい</span>
+            <span class="value">${totalMin}分 (${fmtDuration(totalMin*60)})</span>
+          </div>
+        </div>
+        <div class="confirm-btns">
+          <button class="btn-yellow" id="end-close" style="flex:1;">おやすみ 🌙</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('end-close').onclick = closeModal;
 }
 
 function showReflection() {
@@ -1999,6 +2104,7 @@ function showToast(msg, opts = {}) {
 // メニュー操作
 // ============================================================
 
+document.getElementById('btn-end-day').addEventListener('click', showEndDay);
 document.getElementById('btn-items').addEventListener('click', showCollection);
 document.getElementById('btn-review').addEventListener('click', showReflection);
 
