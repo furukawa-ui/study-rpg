@@ -642,6 +642,16 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
   0%, 100% { box-shadow: 0 0 0 0 rgba(255,225,76,0); }
   50%      { box-shadow: 0 0 24px 4px rgba(255,225,76,0.45); }
 }
+.title-bgm {
+  font-size: 14px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  margin-top: -8px;
+  margin-bottom: 16px;
+  min-width: 140px;
+}
+.title-bgm.bgm-on  { color: var(--dq-green); border-color: var(--dq-green); }
+.title-bgm.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 .title-stats {
   display: flex;
   flex-direction: column;
@@ -707,6 +717,7 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
     <img src="images/hero-social.png" alt="社会の勇者">
   </div>
   <button id="btn-start-game">▶ 勉強をスタート</button>
+  <button id="title-bgm-toggle" class="title-bgm">🔇 BGM OFF</button>
   <div class="title-stats">
     <div class="row"><span>ゆうしゃ</span><span class="v" id="title-name">ゆうしゃ</span></div>
     <div class="row"><span>そうレベル</span><span class="v" id="title-level">4</span></div>
@@ -1041,7 +1052,7 @@ function defaultState() {
     daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social, review }
     trophies: [],  // [{type:'weekly'|'monthly'|'daily-review', tier, period, gold, date}]
     bgm:      {
-      enabled: true,
+      enabled: false,
       volume: 5,
       subjects: { math: false, japanese: false, science: false, social: false, review: false },
     },
@@ -1985,16 +1996,16 @@ function setBgmEnabled(enabled) {
 
 function refreshBgmUI() {
   const btn = document.getElementById('btn-bgm-toggle');
+  const titleBtn = document.getElementById('title-bgm-toggle');
   const slider = document.getElementById('bgm-volume');
   const label = document.getElementById('bgm-volume-label');
-  if (btn) {
-    btn.textContent = state.bgm.enabled ? '🎵 BGM ON' : '🔇 BGM OFF';
-    btn.classList.toggle('bgm-on',  state.bgm.enabled);
-    btn.classList.toggle('bgm-off', !state.bgm.enabled);
+  for (const b of [btn, titleBtn]) {
+    if (!b) continue;
+    b.textContent = state.bgm.enabled ? '🎵 BGM ON' : '🔇 BGM OFF';
+    b.classList.toggle('bgm-on',  state.bgm.enabled);
+    b.classList.toggle('bgm-off', !state.bgm.enabled);
   }
-  if (slider) {
-    slider.value = state.bgm.volume;
-  }
+  if (slider) slider.value = state.bgm.volume;
   if (label) label.textContent = state.bgm.volume + '%';
 }
 
@@ -2559,6 +2570,9 @@ document.addEventListener('visibilitychange', () => {
 // ============================================================
 
 document.getElementById('btn-start-game').addEventListener('click', startGame);
+document.getElementById('title-bgm-toggle').addEventListener('click', () => {
+  setBgmEnabled(!state.bgm.enabled);
+});
 
 // タイトル画面で起動
 showTitleScreen();
