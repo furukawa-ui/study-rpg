@@ -547,6 +547,81 @@ img.battle-enemy {
 button.bgm-on  { color: var(--dq-green); border-color: var(--dq-green); }
 button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 
+/* タイトル画面 */
+#title-screen {
+  min-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 16px;
+  text-align: center;
+}
+#title-screen .title-main {
+  font-size: 34px;
+  color: var(--dq-yellow);
+  margin: 0 0 12px;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 14px #ffe14c66, 2px 2px 0 #000;
+}
+.title-subtitle {
+  font-size: 15px;
+  color: var(--dq-dim);
+  margin-bottom: 26px;
+  letter-spacing: 0.1em;
+}
+.title-portraits {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 26px;
+  flex-wrap: wrap;
+}
+.title-portraits img {
+  width: 80px;
+  height: 96px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  animation: titleBob 1.4s ease-in-out infinite;
+}
+.title-portraits img:nth-child(2) { animation-delay: 0.18s; }
+.title-portraits img:nth-child(3) { animation-delay: 0.36s; }
+.title-portraits img:nth-child(4) { animation-delay: 0.54s; }
+@keyframes titleBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+#btn-start-game {
+  font-size: 20px;
+  padding: 16px 30px;
+  border: 3px solid var(--dq-yellow);
+  color: var(--dq-yellow);
+  background: #000;
+  border-radius: 12px;
+  margin: 16px 0 24px;
+  min-width: 240px;
+  animation: titlePulse 1.6s ease-in-out infinite;
+  letter-spacing: 0.12em;
+}
+@keyframes titlePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,225,76,0); }
+  50%      { box-shadow: 0 0 24px 4px rgba(255,225,76,0.45); }
+}
+.title-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--dq-dim);
+  margin-top: 18px;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 12px 22px;
+  min-width: 220px;
+}
+.title-stats .row { justify-content: space-between; gap: 16px; }
+.title-stats .v { color: var(--dq-yellow); font-feature-settings: "tnum"; }
+
 .small { font-size: 13px; color: var(--dq-dim); }
 .center { text-align: center; }
 .mt8 { margin-top: 8px; }
@@ -587,6 +662,26 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 </head>
 <body>
 
+<!-- タイトル画面 -->
+<div id="title-screen">
+  <div class="title-main">★ べんきょうクエスト ★</div>
+  <div class="title-subtitle">〜 中学受験への 旅 〜</div>
+  <div class="title-portraits">
+    <img src="images/hero-math.png" alt="算数の勇者">
+    <img src="images/hero-japanese.png" alt="国語の勇者">
+    <img src="images/hero-science.png" alt="理科の勇者">
+    <img src="images/hero-social.png" alt="社会の勇者">
+  </div>
+  <button id="btn-start-game">▶ 勉強をスタート</button>
+  <div class="title-stats">
+    <div class="row"><span>ゆうしゃ</span><span class="v" id="title-name">ゆうしゃ</span></div>
+    <div class="row"><span>そうレベル</span><span class="v" id="title-level">4</span></div>
+    <div class="row"><span>累計べんきょう</span><span class="v" id="title-total">0時間 0分</span></div>
+  </div>
+</div>
+
+<!-- ゲーム画面 -->
+<div id="game-screen" class="hidden">
 <h1>★ べんきょうクエスト ★</h1>
 
 <div class="panel">
@@ -654,6 +749,8 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
     <button id="btn-reset" class="btn-red">リセット</button>
   </div>
 </div>
+
+</div><!-- /#game-screen -->
 
 <div id="modal-root"></div>
 <div id="toast-root"></div>
@@ -1154,6 +1251,46 @@ function nextMonthlyTier(curMin) {
 }
 
 // ============================================================
+// 画面切り替え (タイトル ⇔ ゲーム)
+// ============================================================
+
+function showTitleScreen() {
+  // タイマー停止
+  if (T.running || T.paused) tStop();
+  closeModal();
+  document.getElementById('title-screen').classList.remove('hidden');
+  document.getElementById('game-screen').classList.add('hidden');
+  refreshTitleStats();
+  window.scrollTo(0, 0);
+}
+
+function startGame() {
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('game-screen').classList.remove('hidden');
+  render();
+  // 名前未設定なら入力プロンプトを出す
+  if (!state.hero.name || state.hero.name === 'ゆうしゃ') {
+    setTimeout(() => {
+      showPrompt('なまえを いれてください', '', name => {
+        if (name) {
+          state.hero.name = name.slice(0, 12);
+          saveState();
+          render();
+          showToast(`ようこそ ${state.hero.name}！\n勉強の たびを はじめよう！`);
+        }
+      });
+    }, 200);
+  }
+  window.scrollTo(0, 0);
+}
+
+function refreshTitleStats() {
+  document.getElementById('title-name').textContent = state.hero.name || 'ゆうしゃ';
+  document.getElementById('title-level').textContent = totalLevel();
+  document.getElementById('title-total').textContent = fmtDuration(totalMinutes() * 60);
+}
+
+// ============================================================
 // 本日の勉強を終了
 // ============================================================
 
@@ -1241,7 +1378,7 @@ function showEndDay() {
       </div>
     </div>
   `;
-  document.getElementById('end-close').onclick = closeModal;
+  document.getElementById('end-close').onclick = showTitleScreen;
 }
 
 function showReflection() {
@@ -2278,21 +2415,10 @@ window.addEventListener('pagehide', () => {
 // 初回起動
 // ============================================================
 
-if (!state.hero.name || state.hero.name === 'ゆうしゃ') {
-  // 名前を入れさせる（スキップ可）
-  setTimeout(() => {
-    showPrompt('なまえを いれてください', '', name => {
-      if (name) {
-        state.hero.name = name.slice(0, 12);
-        saveState();
-        render();
-        showToast(`ようこそ ${state.hero.name}！\n勉強の たびを はじめよう！`);
-      }
-    });
-  }, 200);
-}
+document.getElementById('btn-start-game').addEventListener('click', startGame);
 
-render();
+// タイトル画面で起動
+showTitleScreen();
 </script>
 
 </body>
