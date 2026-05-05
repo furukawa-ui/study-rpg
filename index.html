@@ -841,7 +841,8 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
     <div class="item"><span class="label">ぜんかい べんきょうした 日</span><span id="last-date">- - -</span></div>
   </div>
   <div class="row mt12">
-    <button id="btn-end-day" class="btn-green" style="flex:1; font-size:18px; padding:14px;">🌙 本日の勉強を終了する</button>
+    <button id="btn-end-day" class="btn-green" style="flex:1; font-size:16px; padding:14px;">🌙 本日の勉強を終了</button>
+    <button id="btn-back-title" class="btn-yellow" style="flex:1; font-size:16px; padding:14px;">← タイトルへもどる</button>
   </div>
   <div class="row mt12">
     <button id="btn-items" class="btn-yellow" style="flex:1;">⚔ アイテム ずかん</button>
@@ -2561,6 +2562,7 @@ function showToast(msg, opts = {}) {
 document.getElementById('btn-end-day').addEventListener('click', showEndDay);
 document.getElementById('btn-items').addEventListener('click', showCollection);
 document.getElementById('btn-review').addEventListener('click', showReflection);
+document.getElementById('btn-back-title').addEventListener('click', showTitleScreen);
 
 document.getElementById('btn-bgm-toggle').addEventListener('click', () => {
   setBgmEnabled(!state.bgm.enabled);
