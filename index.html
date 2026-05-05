@@ -1268,9 +1268,11 @@ function showTitleScreen() {
   document.getElementById('game-screen').classList.add('hidden');
   refreshTitleStats();
   window.scrollTo(0, 0);
+  playTitleBgm();
 }
 
 function startGame() {
+  stopTitleBgm();
   document.getElementById('title-screen').classList.add('hidden');
   document.getElementById('game-screen').classList.remove('hidden');
   render();
@@ -1766,6 +1768,38 @@ function triggerAttack(damage) {
 
 const bgmAudio = {};
 const bgmFailed = {};
+let titleAudio = null;
+let titleAudioFailed = false;
+
+function getTitleBgm() {
+  if (titleAudioFailed) return null;
+  if (titleAudio) return titleAudio;
+  const a = new Audio('audio/bgm-title.mp3');
+  a.loop = true;
+  a.preload = 'auto';
+  a.volume = (state.bgm?.volume ?? 50) / 100;
+  a.addEventListener('error', () => {
+    titleAudioFailed = true;
+    titleAudio = null;
+  });
+  titleAudio = a;
+  return a;
+}
+
+function playTitleBgm() {
+  if (!state.bgm?.enabled) return;
+  const a = getTitleBgm();
+  if (!a) return;
+  a.volume = (state.bgm.volume ?? 50) / 100;
+  a.play().catch(() => {/* 自動再生ブロック等は無視 */});
+}
+
+function stopTitleBgm() {
+  if (titleAudio && !titleAudio.paused) {
+    titleAudio.pause();
+    titleAudio.currentTime = 0;
+  }
+}
 
 function getBgm(subj) {
   if (bgmFailed[subj]) return null;
@@ -1846,14 +1880,22 @@ function setBgmVolume(v) {
   for (const k of SUBJECTS) {
     if (bgmAudio[k]) bgmAudio[k].volume = v / 100;
   }
+  if (titleAudio) titleAudio.volume = v / 100;
   saveState();
   refreshBgmUI();
 }
 
 function setBgmEnabled(enabled) {
   state.bgm.enabled = enabled;
-  if (!enabled) stopBgm();
-  else if (T.subject && T.running) playBgm(T.subject);
+  if (!enabled) {
+    stopBgm();
+    stopTitleBgm();
+  } else {
+    if (T.subject && T.running) playBgm(T.subject);
+    if (!document.getElementById('title-screen').classList.contains('hidden')) {
+      playTitleBgm();
+    }
+  }
   saveState();
   refreshBgmUI();
 }
