@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<title>べんきょうクエスト</title>
+<style>
+:root {
+  --dq-bg: #000;
+  --dq-panel: #000;
+  --dq-border: #fff;
+  --dq-text: #fff;
+  --dq-yellow: #ffe14c;
+  --dq-red: #ff6b6b;
+  --dq-green: #6bef7f;
+  --dq-blue: #6bd3ff;
+  --dq-dim: #888;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--dq-bg);
+  color: var(--dq-text);
+  font-family: "Hiragino Maru Gothic ProN", "ヒラギノ丸ゴ ProN", "ヒラギノ角ゴシック", "Hiragino Sans", sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+  padding: 12px;
+  padding-bottom: 80px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+h1 {
+  text-align: center;
+  font-size: 22px;
+  margin: 8px 0 16px;
+  letter-spacing: 0.1em;
+  color: var(--dq-yellow);
+}
+
+/* DQ風メッセージ枠 */
+.panel {
+  border: 3px solid var(--dq-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  background: var(--dq-panel);
+  box-shadow: 0 0 0 2px #000 inset;
+}
+
+.panel .panel-title {
+  font-size: 14px;
+  color: var(--dq-yellow);
+  margin-bottom: 6px;
+  letter-spacing: 0.1em;
+}
+
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.row + .row { margin-top: 4px; }
+
+button {
+  font-family: inherit;
+  font-size: 17px;
+  color: var(--dq-text);
+  background: #000;
+  border: 2px solid var(--dq-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-height: 44px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:active { background: #fff; color: #000; }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+button:disabled:active { background: #000; color: var(--dq-text); }
+
+.btn-yellow { color: var(--dq-yellow); border-color: var(--dq-yellow); }
+.btn-red { color: var(--dq-red); border-color: var(--dq-red); }
+.btn-green { color: var(--dq-green); border-color: var(--dq-green); }
+
+/* キャラクター情報 */
+.hero-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 16px;
+}
+.hero-bar .label { color: var(--dq-dim); font-size: 13px; }
+.hero-bar .value { font-size: 18px; color: var(--dq-yellow); }
+
+/* 教科パネル */
+.subject {
+  border: 3px solid var(--dq-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  background: #000;
+}
+.subject.studying { border-color: var(--dq-yellow); box-shadow: 0 0 0 2px #ffe14c44 inset; }
+
+.subject-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.subject-name { font-size: 19px; font-weight: bold; }
+.subject-level { font-size: 14px; color: var(--dq-yellow); }
+
+.expbar {
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 4px;
+  background: #000;
+  position: relative;
+  margin: 4px 0 6px;
+  overflow: hidden;
+}
+.expbar > .fill {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  background: var(--dq-yellow);
+}
+.expbar > .text {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 2px #000;
+  mix-blend-mode: normal;
+}
+
+.weapon { font-size: 14px; color: var(--dq-blue); margin-bottom: 8px; }
+
+.subject-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.subject-actions button { flex: 1 1 auto; min-width: 90px; }
+
+.timer-display {
+  font-size: 28px;
+  text-align: center;
+  letter-spacing: 0.1em;
+  font-feature-settings: "tnum";
+  color: var(--dq-yellow);
+  margin: 6px 0;
+}
+
+/* ボスセクション */
+.boss-list .boss-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed #444;
+}
+.boss-list .boss-item:last-child { border-bottom: none; }
+.boss-name { font-size: 16px; }
+.boss-info { font-size: 12px; color: var(--dq-dim); }
+.boss-defeated { color: var(--dq-dim); text-decoration: line-through; }
+
+/* モーダル */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  padding: 12px;
+}
+.modal {
+  border: 3px solid var(--dq-border);
+  border-radius: 10px;
+  background: #000;
+  padding: 16px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+/* バトル */
+.battle-stats { display: flex; justify-content: space-around; margin: 12px 0; }
+.battle-stats .who { text-align: center; }
+.battle-stats .name { font-size: 14px; color: var(--dq-yellow); }
+.battle-stats .hp { font-size: 22px; }
+.hp-heart { color: var(--dq-red); }
+.hp-empty { color: #444; }
+
+.battle-message {
+  border: 2px solid var(--dq-border);
+  border-radius: 6px;
+  padding: 10px;
+  margin: 10px 0;
+  min-height: 70px;
+  font-size: 16px;
+  white-space: pre-wrap;
+}
+
+.quiz-question {
+  font-size: 18px;
+  margin: 12px 0;
+  white-space: pre-wrap;
+}
+.quiz-choices { display: flex; flex-direction: column; gap: 8px; }
+.quiz-choices button { text-align: left; padding: 12px 14px; font-size: 17px; }
+
+.flash-correct { animation: flashGreen 0.5s; }
+.flash-wrong { animation: flashRed 0.5s; }
+@keyframes flashGreen { 0%,100%{background:#000;} 50%{background:#0a4;} }
+@keyframes flashRed   { 0%,100%{background:#000;} 50%{background:#a00;} }
+
+/* メニュー */
+.menu-section { font-size: 14px; }
+.menu-section .item { display: flex; justify-content: space-between; padding: 4px 0; }
+.menu-section .label { color: var(--dq-dim); }
+
+.confirm-btns { display: flex; gap: 10px; margin-top: 12px; }
+.confirm-btns button { flex: 1; }
+
+/* トースト */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  background: #000;
+  border: 2px solid var(--dq-yellow);
+  color: var(--dq-yellow);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 16px;
+  z-index: 200;
+  animation: toastIn 0.3s ease-out;
+  max-width: 90vw;
+  text-align: center;
+  white-space: pre-wrap;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.small { font-size: 13px; color: var(--dq-dim); }
+.center { text-align: center; }
+.mt8 { margin-top: 8px; }
+.mt12 { margin-top: 12px; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>★ べんきょうクエスト ★</h1>
+
+<div class="panel">
+  <div class="hero-bar">
+    <div>
+      <div class="label">ゆうしゃ</div>
+      <div class="value" id="hero-name">ゆうしゃ</div>
+    </div>
+    <div>
+      <div class="label">ゴールド</div>
+      <div class="value"><span id="gold">0</span> G</div>
+    </div>
+    <div>
+      <div class="label">そうレベル</div>
+      <div class="value" id="total-level">4</div>
+    </div>
+    <div>
+      <div class="label">そう勉強時間</div>
+      <div class="value" id="total-time">0時間 0分</div>
+    </div>
+  </div>
+</div>
+
+<div id="timer-area"></div>
+
+<div id="subjects"></div>
+
+<div class="panel">
+  <div class="panel-title">▼ ボスせん</div>
+  <div id="boss-list" class="boss-list"></div>
+  <div class="small mt8">レベルが あがると あたらしい ボスが あらわれる！</div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">▼ メニュー</div>
+  <div class="menu-section">
+    <div class="item"><span class="label">ぜんかいの 勉強</span><span id="last-session">- - -</span></div>
+    <div class="item"><span class="label">ぜんかい べんきょうした 日</span><span id="last-date">- - -</span></div>
+  </div>
+  <div class="row mt12">
+    <button id="btn-rename" class="btn-yellow">なまえへんこう</button>
+    <button id="btn-reset" class="btn-red">リセット</button>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script>
+'use strict';
+
+// ============================================================
+// データ定義
+// ============================================================
+
+const SUBJECTS = ['math', 'japanese', 'science', 'social'];
+const SUBJECT_INFO = {
+  math:     { name: '算数',  short: '算', emoji: '⚔' },
+  japanese: { name: '国語',  short: '国', emoji: '✒' },
+  science:  { name: '理科',  short: '理', emoji: '🏹' },
+  social:   { name: '社会',  short: '社', emoji: '🛡' },
+};
+
+// 武器: しれっとレベルが上がるごとに強くなる
+const WEAPONS = {
+  math: [
+    { lv:  1, name: 'ぼうきれ' },
+    { lv:  3, name: 'どうのつるぎ' },
+    { lv:  5, name: 'はがねのつるぎ' },
+    { lv:  8, name: 'ほのおのつるぎ' },
+    { lv: 12, name: 'らいじんのつるぎ' },
+    { lv: 18, name: 'ひかりのつるぎ' },
+    { lv: 25, name: 'てんくうのつるぎ' },
+  ],
+  japanese: [
+    { lv:  1, name: 'きのつえ' },
+    { lv:  3, name: 'けんじゃのつえ' },
+    { lv:  5, name: 'ことだまのつえ' },
+    { lv:  8, name: 'まどうしのつえ' },
+    { lv: 12, name: 'いのりのつえ' },
+    { lv: 18, name: 'せいなるつえ' },
+    { lv: 25, name: 'てんしのつえ' },
+  ],
+  science: [
+    { lv:  1, name: 'きのゆみ' },
+    { lv:  3, name: 'てつのゆみ' },
+    { lv:  5, name: 'いかずちのゆみ' },
+    { lv:  8, name: 'ほしみのゆみ' },
+    { lv: 12, name: 'げんそのゆみ' },
+    { lv: 18, name: 'すいせいのゆみ' },
+    { lv: 25, name: 'うちゅうのゆみ' },
+  ],
+  social: [
+    { lv:  1, name: 'きのたて' },
+    { lv:  3, name: 'てつのたて' },
+    { lv:  5, name: 'こだいのたて' },
+    { lv:  8, name: 'みかどのたて' },
+    { lv: 12, name: 'ぐんしのたて' },
+    { lv: 18, name: 'おうしゃのたて' },
+    { lv: 25, name: 'けんこくのたて' },
+  ],
+};
+
+// ボス
+const BOSSES = {
+  math: [
+    { id: 'm1', lv:  3, name: 'けいさんスライム',   hp: 3, gold:  30 },
+    { id: 'm2', lv:  6, name: 'ずけいゴーレム',     hp: 4, gold:  60 },
+    { id: 'm3', lv: 10, name: 'ひりつのドラゴン',   hp: 5, gold: 100 },
+    { id: 'm4', lv: 15, name: 'はやさのキマイラ',   hp: 6, gold: 150 },
+    { id: 'm5', lv: 25, name: 'かいせいのまおう',   hp: 8, gold: 400 },
+  ],
+  japanese: [
+    { id: 'j1', lv:  3, name: 'かなウィッチ',       hp: 3, gold:  30 },
+    { id: 'j2', lv:  6, name: 'かんじゴースト',     hp: 4, gold:  60 },
+    { id: 'j3', lv: 10, name: 'かんようくデーモン', hp: 5, gold: 100 },
+    { id: 'j4', lv: 15, name: 'こぶんヴァンパイア', hp: 6, gold: 150 },
+    { id: 'j5', lv: 25, name: 'ことだまのまおう',   hp: 8, gold: 400 },
+  ],
+  science: [
+    { id: 's1', lv:  3, name: 'メダカドラゴン',     hp: 3, gold:  30 },
+    { id: 's2', lv:  6, name: 'てんたいナイト',     hp: 4, gold:  60 },
+    { id: 's3', lv: 10, name: 'てこグリフォン',     hp: 5, gold: 100 },
+    { id: 's4', lv: 15, name: 'かがくキマイラ',     hp: 6, gold: 150 },
+    { id: 's5', lv: 25, name: 'ばんしょうのまおう', hp: 8, gold: 400 },
+  ],
+  social: [
+    { id: 'h1', lv:  3, name: 'かまくらゴースト',   hp: 3, gold:  30 },
+    { id: 'h2', lv:  6, name: 'せんごくスピリット', hp: 4, gold:  60 },
+    { id: 'h3', lv: 10, name: 'えどのあやかし',     hp: 5, gold: 100 },
+    { id: 'h4', lv: 15, name: 'めいじのりゅう',     hp: 6, gold: 150 },
+    { id: 'h5', lv: 25, name: 'しでんのまおう',     hp: 8, gold: 400 },
+  ],
+};
+
+// クイズ問題集 — 5年生 中学受験(開成志望)レベル想定
+// 各問題: q=問題文, choices=[4択], a=正解index(0-3), e=解説(任意)
+const QUIZZES = {
+  math: [
+    { q: '1から100までの整数のうち、3の倍数でも5の倍数でもない数は何個ある？',
+      choices: ['47こ', '50こ', '53こ', '60こ'], a: 2,
+      e: '3の倍数=33、5の倍数=20、15の倍数=6。100−(33+20−6)=53' },
+    { q: '半径6cmの円の面積は？(円周率3.14)',
+      choices: ['37.68 cm²', '113.04 cm²', '113.4 cm²', '18.84 cm²'], a: 1,
+      e: '半径×半径×3.14 = 6×6×3.14 = 113.04' },
+    { q: 'ある仕事をAは12日、Bは18日で終える。2人で一緒にやると何日でおわる？',
+      choices: ['5日', '6日', '7.2日', '8日'], a: 2,
+      e: '1日の仕事量 1/12+1/18=5/36。1÷5/36 = 7.2日' },
+    { q: '100円玉と50円玉が合わせて13まいで1000円ある。100円玉は何まい？',
+      choices: ['5まい', '6まい', '7まい', '8まい'], a: 2,
+      e: '100x+50(13−x)=1000 → 50x=350 → x=7' },
+    { q: 'A:B=3:5、A+B=64のとき、Aはいくつ？',
+      choices: ['18', '21', '24', '27'], a: 2,
+      e: 'A = 64×3/(3+5) = 24' },
+    { q: '時速72kmは秒速何m？',
+      choices: ['12m', '20m', '36m', '72m'], a: 1,
+      e: '72×1000÷3600 = 20' },
+    { q: 'ある数を3倍して7をひくと26になる。ある数はいくつ？',
+      choices: ['9', '10', '11', '12'], a: 2,
+      e: '(26+7)÷3 = 11' },
+    { q: '正六角形の内角の1つの大きさは？',
+      choices: ['90度', '108度', '120度', '135度'], a: 2,
+      e: '(6−2)×180÷6 = 120' },
+    { q: '濃さ20%の食塩水200gにとけている食塩は何g？',
+      choices: ['20g', '30g', '40g', '50g'], a: 2,
+      e: '200×0.2 = 40' },
+    { q: '13でわると4あまり、7でわると2あまる整数のうち、いちばん小さい正の整数は？',
+      choices: ['16', '23', '30', '44'], a: 2,
+      e: '30÷13=2あまり4、30÷7=4あまり2' },
+    { q: '1辺6cmの立方体の体積は？',
+      choices: ['36 cm³', '108 cm³', '216 cm³', '512 cm³'], a: 2,
+      e: '6×6×6 = 216' },
+    { q: '10%の食塩水100gと、20%の食塩水100gをまぜると、何%の食塩水になる？',
+      choices: ['12%', '15%', '18%', '20%'], a: 1,
+      e: '(10+20)÷200 = 15%' },
+  ],
+  japanese: [
+    { q: '「光陰矢のごとし」の意味として正しいものはどれ？',
+      choices: ['お金は大切である', '月日が経つのは早い', '人の心はうつろいやすい', '苦労は買ってでもしろ'], a: 1 },
+    { q: '『枕草子』の作者は？',
+      choices: ['紫式部', '清少納言', '吉田兼好', '鴨長明'], a: 1 },
+    { q: '「需要」の対義語は？',
+      choices: ['消費', '供給', '生産', '販売'], a: 1 },
+    { q: '「圧巻」の正しい読みは？',
+      choices: ['あつまき', 'あっかん', 'あつまく', 'あっけん'], a: 1,
+      e: '「圧巻=他をおさえてもっとも優れた部分」' },
+    { q: '「春はあけぼの」で始まる随筆は？',
+      choices: ['徒然草', '方丈記', '枕草子', '土佐日記'], a: 2 },
+    { q: '「推敲」の意味として正しいのは？',
+      choices: ['人をすすめる', '文章をねり直す', '物をおすこと', 'おしげもなく使う'], a: 1 },
+    { q: '「百聞は一見にしかず」の意味にもっとも近いのは？',
+      choices: ['人の話はあてにならない', '何度も聞けばわかる', '自分の目で見るほうがたしか', '一度の失敗でこりる'], a: 2 },
+    { q: '「朝令暮改」の意味は？',
+      choices: ['朝早く起きること', '命令や方針がよく変わること', '朝と夜で態度が違うこと', '朝のうちに仕事を終えること'], a: 1 },
+    { q: '『竹取物語』の主人公の名前は？',
+      choices: ['かぐや姫', 'おたふく', 'うらしま太郎', 'ももたろう'], a: 0 },
+    { q: '「故事成語」の「蛇足」の意味は？',
+      choices: ['すばやい動き', '余計なつけ足し', 'こっそり進むこと', 'ねばり強さ'], a: 1 },
+    { q: '次のうち「主語」と「述語」が正しく対応している文は？',
+      choices: ['きれいな 花が さいた。', '花が きれいに さいた。', '花が きれいだ。', 'すべて正しい'], a: 3,
+      e: 'いずれも「花が」が主語、述語と意味が通る。' },
+    { q: '「雨後の筍(うごのたけのこ)」の意味として近いものは？',
+      choices: ['まれにしか起きない', 'つぎつぎと出てくる', 'うつくしい光景', 'むだなこと'], a: 1 },
+  ],
+  science: [
+    { q: '植物の葉が日光をうけてデンプンをつくるはたらきを何という？',
+      choices: ['呼吸', '光合成', '蒸散', '発芽'], a: 1 },
+    { q: '水を100℃まであたためて水蒸気にかわることを何という？',
+      choices: ['ようかい', 'じょうはつ', 'ふっとう', 'ぎょうこ'], a: 2 },
+    { q: '太陽系で太陽から3番目の惑星は？',
+      choices: ['金星', '地球', '火星', '木星'], a: 1 },
+    { q: '100gの水に25gの食塩をとかしたとき、こさは何%？',
+      choices: ['10%', '20%', '25%', '40%'], a: 1,
+      e: '25÷(100+25)×100 = 20' },
+    { q: 'メダカのオスとメスを見分けるとき、せびれに切れこみがあるのはどっち？',
+      choices: ['オス', 'メス', '両方ある', 'どちらにもない'], a: 0 },
+    { q: '次の金属のうち、磁石につくのはどれ？',
+      choices: ['アルミニウム', '銅', '鉄', '金'], a: 2 },
+    { q: 'ヒトの心臓には部屋がいくつある？',
+      choices: ['2つ', '3つ', '4つ', '5つ'], a: 2 },
+    { q: '月が新月から次の新月にもどるまで、およそ何日？',
+      choices: ['約 7日', '約14日', '約30日', '約60日'], a: 2 },
+    { q: '空気にいちばん多くふくまれている気体は？',
+      choices: ['酸素', '二酸化炭素', 'ちっ素', '水素'], a: 2,
+      e: '空気の約78%はちっ素' },
+    { q: 'てこの「支点・力点・作用点」のうち、力を加える点はどれ？',
+      choices: ['支点', '力点', '作用点', '中点'], a: 1 },
+    { q: '北極星が見える星座は？',
+      choices: ['オリオン座', 'こぐま座', 'おおぐま座', 'カシオペア座'], a: 1 },
+    { q: '4年生で習う「とじこめた空気」の性質として正しいのは？',
+      choices: ['おしちぢめられない', 'おすともとにもどらない', 'おしちぢめると体積が小さくなる', '温めると重くなる'], a: 2 },
+  ],
+  social: [
+    { q: '江戸幕府を開いた人物は？',
+      choices: ['織田信長', '豊臣秀吉', '徳川家康', '徳川家光'], a: 2 },
+    { q: '日本国憲法が施行されたのは？',
+      choices: ['1945年8月15日', '1946年11月3日', '1947年5月3日', '1951年9月8日'], a: 2,
+      e: '5月3日は「憲法記念日」' },
+    { q: '日本でいちばん大きな湖は？',
+      choices: ['霞ヶ浦', '琵琶湖', '猪苗代湖', 'サロマ湖'], a: 1 },
+    { q: '関ヶ原の戦いがおきたのは何年？',
+      choices: ['1467年', '1573年', '1600年', '1615年'], a: 2 },
+    { q: '明治維新で中心となった2つの藩を合わせて何という？',
+      choices: ['薩長', '長土', '薩土', '薩長土肥のうちはじめの2つ'], a: 0 },
+    { q: '日本国憲法の三原則にふくまれないものは？',
+      choices: ['国民主権', '平和主義', '基本的人権の尊重', '天皇主権'], a: 3 },
+    { q: '日本でいちばん長い川は？',
+      choices: ['利根川', '信濃川', '石狩川', '北上川'], a: 1 },
+    { q: 'アメリカ合衆国の首都は？',
+      choices: ['ニューヨーク', 'ワシントンD.C.', 'ロサンゼルス', 'シカゴ'], a: 1 },
+    { q: '日本でいちばん面積の大きい都道府県は？',
+      choices: ['岩手県', '長野県', '北海道', '新潟県'], a: 2 },
+    { q: '三権分立で、法律をつくる仕事をするのはどこ？',
+      choices: ['内閣', '国会', '裁判所', '都道府県'], a: 1 },
+    { q: '「鎖国」のとき、ヨーロッパで唯一交易が許されていた国は？',
+      choices: ['イギリス', 'スペイン', 'オランダ', 'ポルトガル'], a: 2 },
+    { q: '世界遺産に登録されている、奈良の大仏がある寺は？',
+      choices: ['法隆寺', '東大寺', '清水寺', '金閣寺'], a: 1 },
+  ],
+};
+
+// ============================================================
+// 状態管理
+// ============================================================
+
+const STORAGE_KEY = 'study-rpg-v1';
+
+function defaultState() {
+  return {
+    version: 1,
+    hero:    { name: 'ゆうしゃ' },
+    gold:    0,
+    subjects: {
+      math:     { totalMin: 0, bankedSec: 0, defeated: [] },
+      japanese: { totalMin: 0, bankedSec: 0, defeated: [] },
+      science:  { totalMin: 0, bankedSec: 0, defeated: [] },
+      social:   { totalMin: 0, bankedSec: 0, defeated: [] },
+    },
+    history: { lastStudyAt: 0, lastSessionSec: 0 },
+  };
+}
+
+let state = loadState();
+
+// このブラウザで localStorage が使えるか
+const STORAGE_OK = (() => {
+  try {
+    const k = '__study_rpg_test__';
+    localStorage.setItem(k, '1');
+    localStorage.removeItem(k);
+    return true;
+  } catch (e) {
+    return false;
+  }
+})();
+
+function loadState() {
+  if (!STORAGE_OK) return defaultState();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    // 軽いマイグレーション
+    const def = defaultState();
+    return mergeDefault(def, parsed);
+  } catch (e) {
+    console.error('セーブデータの読み込みに失敗', e);
+    return defaultState();
+  }
+}
+
+function mergeDefault(def, src) {
+  if (def === null || typeof def !== 'object') return src ?? def;
+  if (src === null || typeof src !== 'object') return def;
+  const out = Array.isArray(def) ? [] : {};
+  for (const k of Object.keys(def)) {
+    out[k] = mergeDefault(def[k], src[k]);
+  }
+  // 既存の追加キーも保持
+  for (const k of Object.keys(src)) {
+    if (!(k in out)) out[k] = src[k];
+  }
+  return out;
+}
+
+let saveWarned = false;
+function saveState() {
+  if (!STORAGE_OK) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('セーブ失敗', e);
+    if (!saveWarned) {
+      saveWarned = true;
+      showToast('セーブに失敗しました\n（このブラウザでは保存できないよ）');
+    }
+  }
+}
+
+// ============================================================
+// レベル・武器のヘルパ
+// ============================================================
+
+function levelOf(subj) {
+  return 1 + Math.floor(state.subjects[subj].totalMin / 100);
+}
+function expInLevel(subj) {
+  return state.subjects[subj].totalMin % 100;
+}
+function totalLevel() {
+  return SUBJECTS.reduce((s, k) => s + levelOf(k), 0);
+}
+function totalMinutes() {
+  return SUBJECTS.reduce((s, k) => s + state.subjects[k].totalMin, 0);
+}
+function currentWeapon(subj) {
+  const lv = levelOf(subj);
+  let w = WEAPONS[subj][0];
+  for (const x of WEAPONS[subj]) if (lv >= x.lv) w = x;
+  return w;
+}
+function nextBoss(subj) {
+  const sub = state.subjects[subj];
+  for (const b of BOSSES[subj]) {
+    if (!sub.defeated.includes(b.id)) return b;
+  }
+  return null;
+}
+
+// ============================================================
+// タイマー
+// ============================================================
+
+function awardMinutes(subj, mins) {
+  const before = levelOf(subj);
+  state.subjects[subj].totalMin += mins;
+  state.gold += mins;
+  const after = levelOf(subj);
+  if (after > before) {
+    const gainedLevels = after - before;
+    const bonus = gainedLevels * 50;
+    state.gold += bonus;
+    const w = currentWeapon(subj);
+    showToast(`${SUBJECT_INFO[subj].name}の レベルが ${after} に あがった！\n${bonus}G ボーナス！\n武器: ${w.name}`);
+  }
+}
+
+const T = {
+  running: false,
+  paused:  false,
+  subject: null,
+  segStartedAt: null,    // 現在の running 区間の開始時刻
+  bankedMs: 0,           // 経験値変換していない端数ms（セッション内）
+  sessionMs: 0,          // セッション開始からの累積勉強時間ms (端数も含む)
+  intervalId: null,
+  lastTickAt: 0,
+};
+
+function tStart(subj) {
+  if (T.running || T.paused) return;
+  // 過去セッションの端数を取り込み
+  const carrySec = state.subjects[subj].bankedSec || 0;
+  state.subjects[subj].bankedSec = 0;
+  saveState();
+
+  T.subject = subj;
+  T.bankedMs = carrySec * 1000;
+  T.sessionMs = carrySec * 1000; // 表示は「今回の勉強時間」: 端数も含めるとうれしい
+  T.segStartedAt = Date.now();
+  T.lastTickAt = Date.now();
+  T.running = true;
+  T.paused = false;
+  T.intervalId = setInterval(tTick, 500);
+  render();
+}
+
+function tPause() {
+  if (!T.running) return;
+  tCommit();
+  T.running = false;
+  T.paused = true;
+  if (T.intervalId) clearInterval(T.intervalId);
+  T.intervalId = null;
+  render();
+}
+
+function tResume() {
+  if (!T.paused) return;
+  T.segStartedAt = Date.now();
+  T.lastTickAt = Date.now();
+  T.running = true;
+  T.paused = false;
+  T.intervalId = setInterval(tTick, 500);
+  render();
+}
+
+function tStop() {
+  if (T.running) tCommit();
+  // 端数を次回に持ち越し
+  if (T.subject) {
+    state.subjects[T.subject].bankedSec = Math.floor(T.bankedMs / 1000);
+  }
+  // セッション履歴
+  if (T.sessionMs > 0) {
+    state.history.lastStudyAt = Date.now();
+    state.history.lastSessionSec = Math.floor(T.sessionMs / 1000);
+  }
+  saveState();
+  if (T.intervalId) clearInterval(T.intervalId);
+  T.running = false; T.paused = false; T.subject = null;
+  T.segStartedAt = null; T.bankedMs = 0; T.sessionMs = 0;
+  T.intervalId = null; T.lastTickAt = 0;
+  render();
+}
+
+// 現在 running 区間の経過分を経験値に反映 + sessionMs を更新
+function tCommit() {
+  if (!T.running || !T.subject) return;
+  const now = Date.now();
+  const segMs = Math.max(0, now - T.segStartedAt);
+  // sessionMs 更新（端数も含めた累積）
+  T.sessionMs += segMs;
+  // 経験値換算
+  T.bankedMs += segMs;
+  const minutes = Math.floor(T.bankedMs / 60000);
+  if (minutes > 0) {
+    awardMinutes(T.subject, minutes);
+    T.bankedMs -= minutes * 60000;
+  }
+  T.segStartedAt = now;
+  saveState();
+}
+
+function tTick() {
+  if (!T.running) return;
+  const now = Date.now();
+  const since = now - T.lastTickAt;
+  if (since > 90 * 1000) {
+    // 異常なギャップ → 自動一時停止
+    tPause();
+    showToast('長い時間あいだがあいたので\n一時停止したよ');
+    return;
+  }
+  T.lastTickAt = now;
+  tCommit();
+  render(false);
+}
+
+// ============================================================
+// 表示
+// ============================================================
+
+function fmtTime(totalSec) {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}時間${String(m).padStart(2,'0')}分${String(s).padStart(2,'0')}秒`;
+  return `${String(m).padStart(2,'0')}分${String(s).padStart(2,'0')}秒`;
+}
+function fmtDuration(totalSec) {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  if (h > 0) return `${h}時間 ${m}分`;
+  return `${m}分`;
+}
+function fmtDate(ts) {
+  if (!ts) return '- - -';
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function render(rerenderAll = true) {
+  // ヘッダ
+  document.getElementById('hero-name').textContent = state.hero.name || 'ゆうしゃ';
+  document.getElementById('gold').textContent = state.gold;
+  document.getElementById('total-level').textContent = totalLevel();
+  document.getElementById('total-time').textContent = fmtDuration(totalMinutes() * 60);
+
+  // タイマー領域
+  renderTimerArea();
+
+  // 教科パネル
+  if (rerenderAll) {
+    renderSubjects();
+    renderBosses();
+    renderMenu();
+  } else {
+    // running中はタイマー以外固定でOK。ただしEXPは増えうるのでEXPバーだけ更新
+    refreshSubjectBars();
+  }
+}
+
+function renderTimerArea() {
+  const root = document.getElementById('timer-area');
+  if (!T.subject) {
+    root.innerHTML = '';
+    return;
+  }
+  const name = SUBJECT_INFO[T.subject].name;
+  const sec = Math.floor(T.sessionMs / 1000);
+  const mins = Math.floor(sec / 60);
+  const expProg = T.bankedMs / 60000; // 0..1
+  const status = T.running ? '勉強中…' : (T.paused ? '一時停止中' : '');
+  root.innerHTML = `
+    <div class="panel" style="border-color: var(--dq-yellow);">
+      <div class="panel-title">▼ ${name}を 勉強中  (${status})</div>
+      <div class="timer-display">${fmtTime(sec)}</div>
+      <div class="small center">けいけんち：${mins}　/　次の1けいけんちまで ${(60 - Math.floor((T.bankedMs%60000)/1000))}秒</div>
+      <div class="row mt12">
+        ${T.running ? '<button id="t-pause" class="btn-yellow">一時停止</button>' : ''}
+        ${T.paused  ? '<button id="t-resume" class="btn-green">さいかい</button>' : ''}
+        <button id="t-stop" class="btn-red">ストップ</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('t-pause')?.addEventListener('click', tPause);
+  document.getElementById('t-resume')?.addEventListener('click', tResume);
+  document.getElementById('t-stop')?.addEventListener('click', tStop);
+}
+
+function renderSubjects() {
+  const root = document.getElementById('subjects');
+  root.innerHTML = SUBJECTS.map(subj => {
+    const info = SUBJECT_INFO[subj];
+    const lv = levelOf(subj);
+    const exp = expInLevel(subj);
+    const w = currentWeapon(subj);
+    const banked = state.subjects[subj].bankedSec || 0;
+    const isStudying = T.subject === subj;
+    const studyingClass = isStudying ? ' studying' : '';
+    const disableStart = !!T.subject;
+    return `
+      <div class="subject${studyingClass}" id="sub-${subj}">
+        <div class="subject-head">
+          <div class="subject-name">${info.emoji} ${info.name}</div>
+          <div class="subject-level">Lv ${lv}</div>
+        </div>
+        <div class="expbar">
+          <div class="fill" style="width:${exp}%"></div>
+          <div class="text">${exp} / 100</div>
+        </div>
+        <div class="weapon">武器: ${w.name}</div>
+        <div class="subject-actions">
+          ${isStudying
+              ? `<span class="small">勉強ちゅう…</span>`
+              : `<button data-start="${subj}" ${disableStart ? 'disabled' : ''}>勉強スタート</button>`}
+          ${banked > 0 ? `<span class="small">(まえの端数 ${banked}秒)</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  root.querySelectorAll('button[data-start]').forEach(btn => {
+    btn.addEventListener('click', () => tStart(btn.dataset.start));
+  });
+}
+
+function refreshSubjectBars() {
+  for (const subj of SUBJECTS) {
+    const el = document.getElementById('sub-' + subj);
+    if (!el) continue;
+    const exp = expInLevel(subj);
+    const lv  = levelOf(subj);
+    el.querySelector('.subject-level').textContent = `Lv ${lv}`;
+    el.querySelector('.expbar .fill').style.width = exp + '%';
+    el.querySelector('.expbar .text').textContent = `${exp} / 100`;
+    el.querySelector('.weapon').textContent = `武器: ${currentWeapon(subj).name}`;
+  }
+}
+
+function renderBosses() {
+  const root = document.getElementById('boss-list');
+  const items = [];
+  for (const subj of SUBJECTS) {
+    for (const b of BOSSES[subj]) {
+      const defeated = state.subjects[subj].defeated.includes(b.id);
+      const lv = levelOf(subj);
+      const unlocked = lv >= b.lv;
+      let cls = '';
+      if (defeated) cls = 'boss-defeated';
+      let action = '';
+      if (defeated) {
+        action = `<span class="small">たおした！</span>`;
+      } else if (unlocked) {
+        action = `<button class="btn-red" data-boss="${subj}:${b.id}">いどむ</button>`;
+      } else {
+        action = `<span class="small">Lv${b.lv}で あらわれる</span>`;
+      }
+      items.push(`
+        <div class="boss-item">
+          <div>
+            <div class="boss-name ${cls}">${SUBJECT_INFO[subj].emoji} ${b.name}</div>
+            <div class="boss-info">${SUBJECT_INFO[subj].name} HP${b.hp}　報しゅう ${b.gold}G</div>
+          </div>
+          ${action}
+        </div>
+      `);
+    }
+  }
+  root.innerHTML = items.join('');
+  root.querySelectorAll('button[data-boss]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const [subj, id] = btn.dataset.boss.split(':');
+      const boss = BOSSES[subj].find(b => b.id === id);
+      if (boss) startBattle(subj, boss);
+    });
+  });
+}
+
+function renderMenu() {
+  document.getElementById('last-session').textContent =
+    state.history.lastSessionSec > 0
+      ? fmtDuration(state.history.lastSessionSec)
+      : '- - -';
+  document.getElementById('last-date').textContent = fmtDate(state.history.lastStudyAt);
+}
+
+// ============================================================
+// バトル
+// ============================================================
+
+const battle = {
+  active: false,
+  subject: null,
+  boss: null,
+  bossHp: 0,
+  playerHp: 3,
+  pool: [],
+  log: '',
+};
+
+function startBattle(subj, boss) {
+  if (T.running || T.paused) {
+    showToast('まずは 勉強の タイマーを ストップしてね');
+    return;
+  }
+  battle.active = true;
+  battle.subject = subj;
+  battle.boss = boss;
+  battle.bossHp = boss.hp;
+  battle.playerHp = 3;
+  battle.pool = shuffle([...QUIZZES[subj]]);
+  battle.log = `${boss.name}が あらわれた！\n${SUBJECT_INFO[subj].name}の もんだいに こたえろ！`;
+  renderBattle();
+}
+
+function endBattle(victory) {
+  battle.active = false;
+  if (victory) {
+    state.subjects[battle.subject].defeated.push(battle.boss.id);
+    state.gold += battle.boss.gold;
+    saveState();
+  }
+  closeModal();
+  if (victory) {
+    showToast(`${battle.boss.name}を たおした！\n${battle.boss.gold}G を てに いれた！`);
+  } else {
+    showToast('やられてしまった…\nもういちど ちょうせんできるよ');
+  }
+  render();
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function nextQuestion() {
+  if (battle.pool.length === 0) battle.pool = shuffle([...QUIZZES[battle.subject]]);
+  return battle.pool.shift();
+}
+
+function renderBattle() {
+  const root = document.getElementById('modal-root');
+  if (!battle.active) { root.innerHTML = ''; return; }
+
+  const q = battle.currentQ || (battle.currentQ = nextQuestion());
+  const heartsBoss = renderHearts(battle.bossHp, battle.boss.hp);
+  const heartsP    = renderHearts(battle.playerHp, 3);
+
+  root.innerHTML = `
+    <div class="modal-bg" id="battle-bg">
+      <div class="modal" id="battle-modal">
+        <div class="panel-title center">▼ ボスせん</div>
+        <div class="battle-stats">
+          <div class="who">
+            <div class="name">${battle.boss.name}</div>
+            <div class="hp">${heartsBoss}</div>
+          </div>
+          <div class="who">
+            <div class="name">${state.hero.name || 'ゆうしゃ'}</div>
+            <div class="hp">${heartsP}</div>
+          </div>
+        </div>
+        <div class="battle-message" id="battle-msg">${battle.log}</div>
+        <div class="quiz-question">Q. ${q.q}</div>
+        <div class="quiz-choices" id="choices">
+          ${q.choices.map((c, i) => `<button data-i="${i}">${i+1}. ${c}</button>`).join('')}
+        </div>
+        <div class="row mt12">
+          <button class="btn-yellow" id="battle-flee">にげる</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.querySelectorAll('#choices button').forEach(btn => {
+    btn.addEventListener('click', () => answerChoice(parseInt(btn.dataset.i, 10)));
+  });
+  document.getElementById('battle-flee').addEventListener('click', () => {
+    showConfirm('にげますか？', '今のボス戦は キャンセルされるよ', () => {
+      battle.active = false;
+      battle.currentQ = null;
+      closeModal();
+      render();
+    });
+  });
+}
+
+function renderHearts(cur, max) {
+  let s = '';
+  for (let i = 0; i < max; i++) {
+    s += i < cur ? '<span class="hp-heart">♥</span>' : '<span class="hp-empty">♡</span>';
+  }
+  return s;
+}
+
+function answerChoice(idx) {
+  const q = battle.currentQ;
+  const correct = idx === q.a;
+  const modalEl = document.getElementById('battle-modal');
+  const msgEl   = document.getElementById('battle-msg');
+
+  if (correct) {
+    battle.bossHp -= 1;
+    battle.log = `せいかい！\n${battle.boss.name}に こうげき！`;
+    msgEl.classList.add('flash-correct');
+  } else {
+    battle.playerHp -= 1;
+    const exp = q.e ? `\n（${q.e}）` : '';
+    battle.log = `ざんねん…\n正解は 「${q.choices[q.a]}」${exp}`;
+    msgEl.classList.add('flash-wrong');
+  }
+  setTimeout(() => msgEl?.classList?.remove('flash-correct','flash-wrong'), 500);
+
+  battle.currentQ = null;
+
+  // 勝敗判定
+  if (battle.bossHp <= 0) {
+    setTimeout(() => endBattle(true), 700);
+    // 残り表示はここでは差し替えるが、battle.activeはまだtrue
+    rerenderBattleStatsOnly(/*finalMessage:*/ `${battle.boss.name}を たおした！`);
+    return;
+  }
+  if (battle.playerHp <= 0) {
+    setTimeout(() => endBattle(false), 700);
+    rerenderBattleStatsOnly(`やられてしまった…`);
+    return;
+  }
+  // 次の問題へ
+  setTimeout(() => renderBattle(), 600);
+}
+
+function rerenderBattleStatsOnly(finalMsg) {
+  const heartsBoss = renderHearts(battle.bossHp, battle.boss.hp);
+  const heartsP    = renderHearts(battle.playerHp, 3);
+  document.querySelectorAll('.battle-stats .who')[0].innerHTML =
+    `<div class="name">${battle.boss.name}</div><div class="hp">${heartsBoss}</div>`;
+  document.querySelectorAll('.battle-stats .who')[1].innerHTML =
+    `<div class="name">${state.hero.name||'ゆうしゃ'}</div><div class="hp">${heartsP}</div>`;
+  const msgEl = document.getElementById('battle-msg');
+  if (msgEl) msgEl.textContent = finalMsg;
+}
+
+// ============================================================
+// モーダル / トースト
+// ============================================================
+
+function closeModal() {
+  document.getElementById('modal-root').innerHTML = '';
+}
+
+function showConfirm(title, body, onYes) {
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal">
+        <div class="panel-title">${title}</div>
+        <div>${body}</div>
+        <div class="confirm-btns">
+          <button class="btn-red" id="cf-yes">はい</button>
+          <button id="cf-no">いいえ</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('cf-yes').onclick = () => { closeModal(); onYes(); };
+  document.getElementById('cf-no').onclick  = () => closeModal();
+}
+
+function showPrompt(title, defaultVal, onOk) {
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal">
+        <div class="panel-title">${title}</div>
+        <input id="pp-input" type="text" value="${escapeHtml(defaultVal||'')}" maxlength="12"
+               style="width:100%;padding:10px;font-size:18px;border:2px solid #fff;border-radius:6px;background:#000;color:#fff;">
+        <div class="confirm-btns">
+          <button class="btn-yellow" id="pp-ok">けってい</button>
+          <button id="pp-cancel">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const input = document.getElementById('pp-input');
+  setTimeout(() => input.focus(), 50);
+  document.getElementById('pp-ok').onclick = () => {
+    const v = input.value.trim();
+    closeModal();
+    onOk(v || defaultVal || '');
+  };
+  document.getElementById('pp-cancel').onclick = () => closeModal();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const root = document.getElementById('toast-root');
+  root.innerHTML = `<div class="toast">${escapeHtml(msg)}</div>`;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => root.innerHTML = '', 2800);
+}
+
+// ============================================================
+// メニュー操作
+// ============================================================
+
+document.getElementById('btn-rename').addEventListener('click', () => {
+  showPrompt('なまえを いれてください', state.hero.name || 'ゆうしゃ', name => {
+    state.hero.name = name.slice(0, 12);
+    saveState();
+    render();
+  });
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  showConfirm(
+    'ぜんぶ リセットしますか？',
+    'レベル・けいけんち・ゴールド・たおしたボスが すべて 消えます。\n本当に リセットしますか？',
+    () => {
+      state = defaultState();
+      saveState();
+      // タイマーも停止
+      if (T.intervalId) clearInterval(T.intervalId);
+      T.running = false; T.paused = false; T.subject = null;
+      T.segStartedAt = null; T.bankedMs = 0; T.sessionMs = 0;
+      T.intervalId = null;
+      showToast('リセットしました');
+      render();
+    }
+  );
+});
+
+// ============================================================
+// 安全策: 画面非表示で自動一時停止
+// ============================================================
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && T.running) {
+    tPause();
+    showToast('画面が ひらいたら さいかい してね');
+  }
+});
+window.addEventListener('blur', () => {
+  if (T.running) {
+    tPause();
+  }
+});
+
+// ページを閉じる前にセーブ
+window.addEventListener('pagehide', () => {
+  if (T.running) tCommit();
+  if (T.subject) state.subjects[T.subject].bankedSec = Math.floor(T.bankedMs / 1000);
+  saveState();
+});
+
+// ============================================================
+// 初回起動
+// ============================================================
+
+if (!state.hero.name || state.hero.name === 'ゆうしゃ') {
+  // 名前を入れさせる（スキップ可）
+  setTimeout(() => {
+    showPrompt('なまえを いれてください', '', name => {
+      if (name) {
+        state.hero.name = name.slice(0, 12);
+        saveState();
+        render();
+        showToast(`ようこそ ${state.hero.name}！\n勉強の たびを はじめよう！`);
+      }
+    });
+  }, 200);
+}
+
+render();
+</script>
+
+</body>
+</html>
