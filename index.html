@@ -533,7 +533,6 @@ img.battle-enemy {
   border-radius: 50%;
   cursor: pointer;
 }
-.bgm-row input[type="range"]:disabled { opacity: 0.35; }
 button.bgm-on  { color: var(--dq-green); border-color: var(--dq-green); }
 button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 
@@ -1622,7 +1621,6 @@ function refreshBgmUI() {
   }
   if (slider) {
     slider.value = state.bgm.volume;
-    slider.disabled = !state.bgm.enabled;
   }
   if (label) label.textContent = state.bgm.volume + '%';
 }
