@@ -478,6 +478,49 @@ img.battle-enemy {
   100% { opacity: 0; transform: translate(0, -70px) scale(1.0); }
 }
 
+/* BGM パネル */
+.bgm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.bgm-row .bgm-label { font-size: 13px; color: var(--dq-dim); width: 50px; }
+.bgm-row .bgm-value { font-size: 13px; color: var(--dq-yellow); width: 48px; text-align: right; font-feature-settings: "tnum"; }
+.bgm-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  background: #222;
+  border: 2px solid #fff;
+  border-radius: 6px;
+  outline: none;
+  margin: 0;
+  padding: 0;
+}
+.bgm-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  background: var(--dq-yellow);
+  border: 2px solid #000;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.bgm-row input[type="range"]::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  background: var(--dq-yellow);
+  border: 2px solid #000;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.bgm-row input[type="range"]:disabled { opacity: 0.35; }
+button.bgm-on  { color: var(--dq-green); border-color: var(--dq-green); }
+button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
+
 .small { font-size: 13px; color: var(--dq-dim); }
 .center { text-align: center; }
 .mt8 { margin-top: 8px; }
@@ -568,6 +611,14 @@ img.battle-enemy {
   <div class="row mt12">
     <button id="btn-items" class="btn-yellow" style="flex:1;">⚔ アイテム ずかん</button>
     <button id="btn-review" class="btn-yellow" style="flex:1;">📊 ふりかえり</button>
+  </div>
+  <div class="bgm-row">
+    <button id="btn-bgm-toggle" class="bgm-on" style="min-width:120px;">🎵 BGM ON</button>
+  </div>
+  <div class="bgm-row">
+    <span class="bgm-label">音量</span>
+    <input type="range" id="bgm-volume" min="0" max="100" step="5" value="50">
+    <span class="bgm-value" id="bgm-volume-label">50%</span>
   </div>
   <div class="row mt12">
     <button id="btn-rename">なまえへんこう</button>
@@ -811,6 +862,7 @@ function defaultState() {
     history: { lastStudyAt: 0, lastSessionSec: 0 },
     daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social }
     trophies: [],  // [{type:'weekly'|'monthly', tier:1-3, period, gold, date}]
+    bgm:      { enabled: true, volume: 50 },
   };
 }
 
@@ -1188,6 +1240,7 @@ function tStart(subj) {
   T.intervalId = setInterval(tTick, 500);
   render();
   startBattleLoop();
+  playBgm(subj);
 }
 
 function tPause() {
@@ -1197,6 +1250,7 @@ function tPause() {
   T.paused = true;
   if (T.intervalId) clearInterval(T.intervalId);
   T.intervalId = null;
+  pauseBgm();
   render();
 }
 
@@ -1207,6 +1261,7 @@ function tResume() {
   T.running = true;
   T.paused = false;
   T.intervalId = setInterval(tTick, 500);
+  resumeBgm();
   render();
 }
 
@@ -1227,6 +1282,7 @@ function tStop() {
   T.segStartedAt = null; T.bankedMs = 0; T.sessionMs = 0;
   T.intervalId = null; T.lastTickAt = 0;
   stopBattleLoop();
+  stopBgm();
   render();
 }
 
@@ -1435,6 +1491,100 @@ function triggerAttack(damage) {
     hero?.classList.remove('attacking');
     enemy?.classList.remove('hit');
   }, 1000);
+}
+
+// ============================================================
+// BGM 管理
+// ============================================================
+
+const bgmAudio = {};
+const bgmFailed = {};
+
+function getBgm(subj) {
+  if (bgmFailed[subj]) return null;
+  if (bgmAudio[subj]) return bgmAudio[subj];
+  const a = new Audio(`audio/bgm-${subj}.mp3`);
+  a.loop = true;
+  a.preload = 'auto';
+  a.volume = (state.bgm?.volume ?? 50) / 100;
+  a.addEventListener('error', () => {
+    bgmFailed[subj] = true;
+    bgmAudio[subj] = null;
+  });
+  bgmAudio[subj] = a;
+  return a;
+}
+
+function playBgm(subj) {
+  if (!state.bgm?.enabled) return;
+  // 他教科の BGM があれば停止
+  for (const k of SUBJECTS) {
+    if (k !== subj && bgmAudio[k] && !bgmAudio[k].paused) {
+      bgmAudio[k].pause();
+      bgmAudio[k].currentTime = 0;
+    }
+  }
+  const a = getBgm(subj);
+  if (!a) return;
+  a.volume = (state.bgm.volume ?? 50) / 100;
+  a.play().catch(() => {/* ファイルなし等は無視 */});
+}
+
+function pauseBgm() {
+  for (const k of SUBJECTS) {
+    if (bgmAudio[k] && !bgmAudio[k].paused) {
+      bgmAudio[k].pause();
+    }
+  }
+}
+
+function resumeBgm() {
+  if (!state.bgm?.enabled || !T.subject) return;
+  const a = getBgm(T.subject);
+  if (!a) return;
+  a.play().catch(() => {});
+}
+
+function stopBgm() {
+  for (const k of SUBJECTS) {
+    if (bgmAudio[k]) {
+      bgmAudio[k].pause();
+      bgmAudio[k].currentTime = 0;
+    }
+  }
+}
+
+function setBgmVolume(v) {
+  state.bgm.volume = v;
+  for (const k of SUBJECTS) {
+    if (bgmAudio[k]) bgmAudio[k].volume = v / 100;
+  }
+  saveState();
+  refreshBgmUI();
+}
+
+function setBgmEnabled(enabled) {
+  state.bgm.enabled = enabled;
+  if (!enabled) stopBgm();
+  else if (T.subject && T.running) playBgm(T.subject);
+  saveState();
+  refreshBgmUI();
+}
+
+function refreshBgmUI() {
+  const btn = document.getElementById('btn-bgm-toggle');
+  const slider = document.getElementById('bgm-volume');
+  const label = document.getElementById('bgm-volume-label');
+  if (btn) {
+    btn.textContent = state.bgm.enabled ? '🎵 BGM ON' : '🔇 BGM OFF';
+    btn.classList.toggle('bgm-on',  state.bgm.enabled);
+    btn.classList.toggle('bgm-off', !state.bgm.enabled);
+  }
+  if (slider) {
+    slider.value = state.bgm.volume;
+    slider.disabled = !state.bgm.enabled;
+  }
+  if (label) label.textContent = state.bgm.volume + '%';
 }
 
 // アイドル中の牽制ループ (running 中のみ動く)
@@ -1795,6 +1945,14 @@ function showToast(msg, opts = {}) {
 
 document.getElementById('btn-items').addEventListener('click', showCollection);
 document.getElementById('btn-review').addEventListener('click', showReflection);
+
+document.getElementById('btn-bgm-toggle').addEventListener('click', () => {
+  setBgmEnabled(!state.bgm.enabled);
+});
+document.getElementById('bgm-volume').addEventListener('input', (e) => {
+  setBgmVolume(parseInt(e.target.value, 10));
+});
+refreshBgmUI();
 
 function showCollection() {
   const root = document.getElementById('modal-root');
