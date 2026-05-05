@@ -564,6 +564,14 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
   letter-spacing: 0.15em;
   text-shadow: 0 0 14px #ffe14c66, 2px 2px 0 #000;
 }
+#title-screen .title-logo {
+  width: 100%;
+  max-width: 460px;
+  height: auto;
+  display: block;
+  margin: 0 auto 8px;
+  image-rendering: pixelated;
+}
 .title-subtitle {
   font-size: 15px;
   color: var(--dq-dim);
@@ -664,7 +672,7 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 
 <!-- タイトル画面 -->
 <div id="title-screen">
-  <div class="title-main">★ べんきょうクエスト ★</div>
+  <img class="title-logo" src="images/title-logo.png" alt="べんきょうクエスト">
   <div class="title-subtitle">〜 中学受験への 旅 〜</div>
   <div class="title-portraits">
     <img src="images/hero-math.png" alt="算数の勇者">
