@@ -540,8 +540,6 @@ function defaultState() {
   };
 }
 
-let state = loadState();
-
 // このブラウザで localStorage が使えるか
 const STORAGE_OK = (() => {
   try {
@@ -553,6 +551,8 @@ const STORAGE_OK = (() => {
     return false;
   }
 })();
+
+let state = loadState();
 
 function loadState() {
   if (!STORAGE_OK) return defaultState();
