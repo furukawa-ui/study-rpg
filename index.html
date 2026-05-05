@@ -1666,15 +1666,7 @@ function tCommit() {
 
 function tTick() {
   if (!T.running) return;
-  const now = Date.now();
-  const since = now - T.lastTickAt;
-  if (since > 90 * 1000) {
-    // 異常なギャップ → 自動一時停止
-    tPause();
-    showToast('長い時間あいだがあいたので\n一時停止したよ');
-    return;
-  }
-  T.lastTickAt = now;
+  T.lastTickAt = Date.now();
   tCommit();
   render(false);
 }
@@ -2547,27 +2539,19 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   );
 });
 
-// ============================================================
-// 安全策: 画面非表示で自動一時停止
-// ============================================================
-
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden && T.running) {
-    tPause();
-    showToast('画面が ひらいたら さいかい してね');
-  }
-});
-window.addEventListener('blur', () => {
-  if (T.running) {
-    tPause();
-  }
-});
-
-// ページを閉じる前にセーブ
+// ページを閉じる前にセーブ (タイマーは止めない)
 window.addEventListener('pagehide', () => {
   if (T.running) tCommit();
   if (T.subject) state.subjects[T.subject].bankedSec = Math.floor(T.bankedMs / 1000);
   saveState();
+});
+
+// 画面復帰時に表示を即更新 (経過時間は Date.now() ベースで正確に反映される)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && T.running) {
+    tCommit();
+    render(false);
+  }
 });
 
 // ============================================================
