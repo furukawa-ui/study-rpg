@@ -143,8 +143,16 @@ button:disabled:active { background: #000; color: var(--dq-text); }
 
 .weapon { font-size: 14px; color: var(--dq-blue); margin-bottom: 8px; }
 
-.subject-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.subject-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .subject-actions button { flex: 1 1 auto; min-width: 90px; }
+.subject-actions button.subj-bgm-btn {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 48px;
+  padding: 8px 0;
+  font-size: 18px;
+  line-height: 1;
+}
 
 .timer-display {
   font-size: 28px;
@@ -862,7 +870,11 @@ function defaultState() {
     history: { lastStudyAt: 0, lastSessionSec: 0 },
     daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social }
     trophies: [],  // [{type:'weekly'|'monthly', tier:1-3, period, gold, date}]
-    bgm:      { enabled: true, volume: 50 },
+    bgm:      {
+      enabled: false,
+      volume: 50,
+      subjects: { math: false, japanese: false, science: false, social: false },
+    },
   };
 }
 
@@ -1517,6 +1529,7 @@ function getBgm(subj) {
 
 function playBgm(subj) {
   if (!state.bgm?.enabled) return;
+  if (state.bgm?.subjects?.[subj] === false) return;
   // 他教科の BGM があれば停止
   for (const k of SUBJECTS) {
     if (k !== subj && bgmAudio[k] && !bgmAudio[k].paused) {
@@ -1528,6 +1541,25 @@ function playBgm(subj) {
   if (!a) return;
   a.volume = (state.bgm.volume ?? 50) / 100;
   a.play().catch(() => {/* ファイルなし等は無視 */});
+}
+
+function toggleSubjectBgm(subj) {
+  if (!state.bgm.subjects) state.bgm.subjects = { math:true, japanese:true, science:true, social:true };
+  state.bgm.subjects[subj] = !state.bgm.subjects[subj];
+  // 今その教科を勉強中なら、即時反映
+  if (T.subject === subj) {
+    if (state.bgm.subjects[subj] && state.bgm.enabled && T.running) {
+      playBgm(subj);
+    } else {
+      // この教科だけ止める
+      if (bgmAudio[subj] && !bgmAudio[subj].paused) {
+        bgmAudio[subj].pause();
+        bgmAudio[subj].currentTime = 0;
+      }
+    }
+  }
+  saveState();
+  renderSubjects();
 }
 
 function pauseBgm() {
@@ -1629,7 +1661,7 @@ function renderSubjects() {
     const banked = state.subjects[subj].bankedSec || 0;
     const isStudying = T.subject === subj;
     const studyingClass = isStudying ? ' studying' : '';
-    const disableStart = !!T.subject;
+    const bgmOn = state.bgm?.subjects?.[subj] !== false;
     return `
       <div class="subject${studyingClass}" id="sub-${subj}">
         <div class="subject-head">
@@ -1644,7 +1676,8 @@ function renderSubjects() {
         <div class="subject-actions">
           ${isStudying
               ? `<span class="small">勉強ちゅう…</span>`
-              : `<button data-start="${subj}" ${disableStart ? 'disabled' : ''}>勉強スタート</button>`}
+              : `<button data-start="${subj}">勉強スタート</button>`}
+          <button class="subj-bgm-btn ${bgmOn ? 'bgm-on' : 'bgm-off'}" data-bgm-subj="${subj}" title="この教科のBGM">${bgmOn ? '🎵' : '🔇'}</button>
           ${banked > 0 ? `<span class="small">(まえの端数 ${banked}秒)</span>` : ''}
         </div>
       </div>
@@ -1652,7 +1685,24 @@ function renderSubjects() {
   }).join('');
 
   root.querySelectorAll('button[data-start]').forEach(btn => {
-    btn.addEventListener('click', () => tStart(btn.dataset.start));
+    btn.addEventListener('click', () => {
+      const subj = btn.dataset.start;
+      // 他教科がアクティブ → ガイド
+      if (T.subject && T.subject !== subj) {
+        showToast(`いま ${SUBJECT_INFO[T.subject].name} を勉強中だよ\nさきに「ストップ」してね`);
+        return;
+      }
+      // 同じ教科が一時停止中 → 自動で再開
+      if (T.subject === subj && T.paused) {
+        tResume();
+        return;
+      }
+      // 何も走ってない → 通常スタート
+      tStart(subj);
+    });
+  });
+  root.querySelectorAll('button[data-bgm-subj]').forEach(btn => {
+    btn.addEventListener('click', () => toggleSubjectBgm(btn.dataset.bgmSubj));
   });
 }
 
