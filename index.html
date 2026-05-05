@@ -352,6 +352,20 @@ button:disabled:active { background: #000; color: var(--dq-text); }
   will-change: transform, filter;
   display: inline-block;
 }
+img.battle-enemy {
+  width: 150px;
+  height: 250px;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  font-size: 0;
+}
+.battle-enemy.no-image {
+  width: auto;
+  height: auto;
+  font-size: 96px;
+}
 /* 攻撃 — 構え→踏み込み→振り抜き→戻り */
 .battle-hero.attacking {
   animation: heroLunge 0.85s cubic-bezier(.22,.85,.4,1.2);
@@ -573,10 +587,10 @@ button:disabled:active { background: #000; color: var(--dq-text); }
 
 const SUBJECTS = ['math', 'japanese', 'science', 'social'];
 const SUBJECT_INFO = {
-  math:     { name: '算数',  short: '算', emoji: '⚔', enemyEmoji: '👹', heroImage: 'images/hero-math.png' },
-  japanese: { name: '国語',  short: '国', emoji: '✒', enemyEmoji: '👻', heroImage: 'images/hero-japanese.png' },
-  science:  { name: '理科',  short: '理', emoji: '🏹', enemyEmoji: '🐲', heroImage: 'images/hero-science.png' },
-  social:   { name: '社会',  short: '社', emoji: '🛡', enemyEmoji: '💀', heroImage: 'images/hero-social.png' },
+  math:     { name: '算数',  short: '算', emoji: '⚔', enemyEmoji: '👹', heroImage: 'images/hero-math.png',     enemyImage: 'images/enemy-math.png' },
+  japanese: { name: '国語',  short: '国', emoji: '✒', enemyEmoji: '👻', heroImage: 'images/hero-japanese.png', enemyImage: 'images/enemy-japanese.png' },
+  science:  { name: '理科',  short: '理', emoji: '🏹', enemyEmoji: '🐲', heroImage: 'images/hero-science.png',  enemyImage: 'images/enemy-science.png' },
+  social:   { name: '社会',  short: '社', emoji: '🛡', enemyEmoji: '💀', heroImage: 'images/hero-social.png',   enemyImage: 'images/enemy-social.png' },
 };
 
 // 武器: しれっとレベルが上がるごとに強くなる
@@ -1325,7 +1339,9 @@ function renderTimerArea() {
     <div class="panel" style="border-color: var(--dq-yellow);">
       <div class="panel-title">▼ ${name}を 勉強中  (${status})</div>
       <div class="battle-scene" id="battle-scene">
-        <div class="battle-enemy">${info.enemyEmoji}</div>
+        ${info.enemyImage
+          ? `<img class="battle-enemy" src="${info.enemyImage}" alt="${name}の敵" onerror="this.outerHTML='<div class=\\'battle-enemy no-image\\'>${info.enemyEmoji}</div>'">`
+          : `<div class="battle-enemy no-image">${info.enemyEmoji}</div>`}
         ${info.heroImage
           ? `<img class="battle-hero" src="${info.heroImage}" alt="${name}の勇者" onerror="this.outerHTML='<div class=\\'battle-hero no-image\\'>${info.emoji}</div>'">`
           : `<div class="battle-hero no-image">${info.emoji}</div>`}
