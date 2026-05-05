@@ -102,19 +102,47 @@ button:disabled:active { background: #000; color: var(--dq-text); }
 
 /* 教科パネル */
 #subjects {
+  margin: 10px 0;
+}
+.review-wrap {
+  margin-bottom: 10px;
+}
+.subjects-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin: 10px 0;
 }
 @media (max-width: 380px) {
-  #subjects { grid-template-columns: 1fr; }
+  .subjects-grid { grid-template-columns: 1fr; }
 }
 .subject {
   border: 3px solid var(--dq-border);
   border-radius: 10px;
   padding: 10px 12px;
   background: #000;
+}
+/* やり直し専用 — 特別な金色枠＆光彩 */
+.subject.review {
+  border: 4px solid var(--dq-yellow);
+  background: linear-gradient(135deg, #1a1500 0%, #000 60%, #1a1500 100%);
+  box-shadow: 0 0 0 2px #000 inset, 0 0 18px #ffe14c55;
+  position: relative;
+}
+.subject.review .subject-name { color: var(--dq-yellow); font-size: 22px; }
+.subject.review .subject-level { color: var(--dq-yellow); }
+.subject.review .weapon { color: var(--dq-yellow); }
+.review-banner {
+  text-align: center;
+  font-size: 13px;
+  color: var(--dq-yellow);
+  margin-bottom: 6px;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px #ffe14c66;
+  animation: reviewSparkle 2.4s ease-in-out infinite;
+}
+@keyframes reviewSparkle {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; text-shadow: 0 0 10px #ffe14c, 0 0 18px #ffe14c66; }
 }
 .subject.studying { border-color: var(--dq-yellow); box-shadow: 0 0 0 2px #ffe14c44 inset; }
 
@@ -768,12 +796,13 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 // データ定義
 // ============================================================
 
-const SUBJECTS = ['math', 'japanese', 'science', 'social'];
+const SUBJECTS = ['math', 'japanese', 'science', 'social', 'review'];
 const SUBJECT_INFO = {
   math:     { name: '算数',  short: '算', emoji: '⚔', enemyEmoji: '👹', heroImage: 'images/hero-math.png',     enemyImage: 'images/enemy-math.png' },
   japanese: { name: '国語',  short: '国', emoji: '✒', enemyEmoji: '👻', heroImage: 'images/hero-japanese.png', enemyImage: 'images/enemy-japanese.png' },
   science:  { name: '理科',  short: '理', emoji: '🏹', enemyEmoji: '🐲', heroImage: 'images/hero-science.png',  enemyImage: 'images/enemy-science.png' },
   social:   { name: '社会',  short: '社', emoji: '🛡', enemyEmoji: '💀', heroImage: 'images/hero-social.png',   enemyImage: 'images/enemy-social.png' },
+  review:   { name: 'やり直し', short: '見', emoji: '🔍', enemyEmoji: '👁️', heroImage: 'images/hero-review.png',   enemyImage: 'images/enemy-review.png' },
 };
 
 // 武器: しれっとレベルが上がるごとに強くなる
@@ -814,6 +843,15 @@ const WEAPONS = {
     { lv: 18, name: 'おうしゃのたて' },
     { lv: 25, name: 'けんこくのたて' },
   ],
+  review: [
+    { lv:  1, name: '気づきのレンズ' },
+    { lv:  3, name: '記憶のしおり' },
+    { lv:  5, name: '分析の眼' },
+    { lv:  8, name: '深考の杖' },
+    { lv: 12, name: '賢者のメガネ' },
+    { lv: 18, name: '叡智の冠' },
+    { lv: 25, name: '究極の理解' },
+  ],
 };
 
 // ボス
@@ -845,6 +883,13 @@ const BOSSES = {
     { id: 'h3', lv: 10, name: 'えどのあやかし',     hp: 5, gold: 100 },
     { id: 'h4', lv: 15, name: 'めいじのりゅう',     hp: 6, gold: 150 },
     { id: 'h5', lv: 25, name: 'しでんのまおう',     hp: 8, gold: 400 },
+  ],
+  review: [
+    { id: 'r1', lv:  3, name: 'ケアレスドラゴン',     hp: 3, gold:  90 },
+    { id: 'r2', lv:  6, name: 'メモリーゴースト',     hp: 4, gold: 180 },
+    { id: 'r3', lv: 10, name: 'ミスのキマイラ',       hp: 5, gold: 300 },
+    { id: 'r4', lv: 15, name: '思いこみの魔王',       hp: 6, gold: 450 },
+    { id: 'r5', lv: 25, name: 'むずかしい問題の覇王', hp: 8, gold: 1200 },
   ],
 };
 
@@ -990,14 +1035,15 @@ function defaultState() {
       japanese: { totalMin: 0, bankedSec: 0, defeated: [] },
       science:  { totalMin: 0, bankedSec: 0, defeated: [] },
       social:   { totalMin: 0, bankedSec: 0, defeated: [] },
+      review:   { totalMin: 0, bankedSec: 0, defeated: [] },
     },
     history: { lastStudyAt: 0, lastSessionSec: 0 },
-    daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social }
-    trophies: [],  // [{type:'weekly'|'monthly', tier:1-3, period, gold, date}]
+    daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social, review }
+    trophies: [],  // [{type:'weekly'|'monthly'|'daily-review', tier, period, gold, date}]
     bgm:      {
       enabled: true,
       volume: 5,
-      subjects: { math: false, japanese: false, science: false, social: false },
+      subjects: { math: false, japanese: false, science: false, social: false, review: false },
     },
   };
 }
@@ -1063,11 +1109,14 @@ function saveState() {
 // レベル・武器のヘルパ
 // ============================================================
 
+function expRate(subj) {
+  return subj === 'review' ? 2 : 1;
+}
 function levelOf(subj) {
-  return 1 + Math.floor(state.subjects[subj].totalMin / 100);
+  return 1 + Math.floor(state.subjects[subj].totalMin * expRate(subj) / 100);
 }
 function expInLevel(subj) {
-  return state.subjects[subj].totalMin % 100;
+  return (state.subjects[subj].totalMin * expRate(subj)) % 100;
 }
 function totalLevel() {
   return SUBJECTS.reduce((s, k) => s + levelOf(k), 0);
@@ -1096,11 +1145,14 @@ function nextBoss(subj) {
 function awardMinutes(subj, mins) {
   const before = levelOf(subj);
   state.subjects[subj].totalMin += mins;
-  state.gold += mins;
+  // やり直しは ゴールドも 2倍
+  const goldMult = (subj === 'review') ? 2 : 1;
+  state.gold += mins * goldMult;
 
   // 日次記録
   const today = todayKey();
-  if (!state.daily[today]) state.daily[today] = { math:0, japanese:0, science:0, social:0 };
+  if (!state.daily[today]) state.daily[today] = { math:0, japanese:0, science:0, social:0, review:0 };
+  if (state.daily[today][subj] === undefined) state.daily[today][subj] = 0;
   state.daily[today][subj] += mins;
 
   // 戦闘演出 (現在表示中の教科のみ)
@@ -1112,7 +1164,7 @@ function awardMinutes(subj, mins) {
   const after = levelOf(subj);
   if (after > before) {
     const gainedLevels = after - before;
-    const bonus = gainedLevels * 50;
+    const bonus = gainedLevels * 50 * goldMult;
     state.gold += bonus;
     const w = currentWeapon(subj);
     showToast(`${SUBJECT_INFO[subj].name}の レベルが ${after} に あがった！\n${bonus}G ボーナス！\n武器: ${w.name}`);
@@ -1120,6 +1172,8 @@ function awardMinutes(subj, mins) {
 
   // 週・月のしきい値チェック
   checkThresholds();
+  // やり直しの日次しきい値チェック
+  if (subj === 'review') checkDailyReviewThresholds();
 }
 
 // ============================================================
@@ -1135,6 +1189,17 @@ const MONTHLY_TIERS = [
   { tier: 1, mins: 1500, gold:  500, emoji: '🥉', label: 'ブロンズ' },
   { tier: 2, mins: 3000, gold: 1000, emoji: '🥈', label: 'シルバー' },
   { tier: 3, mins: 6000, gold: 2000, emoji: '🥇', label: 'ゴールド' },
+];
+// やり直し専用 — 毎日達成できるゴール
+const DAILY_REVIEW_TIERS = [
+  { tier: 1, mins:  30, gold:  50, emoji: '🥉', label: 'ブロンズ' },
+  { tier: 2, mins:  60, gold: 100, emoji: '🥈', label: 'シルバー' },
+  { tier: 3, mins: 120, gold: 300, emoji: '🥇', label: 'ゴールド' },
+];
+const WEEKLY_REVIEW_TIERS = [
+  { tier: 1, mins: 100, gold: 200, emoji: '🥉', label: 'ブロンズ' },
+  { tier: 2, mins: 200, gold: 400, emoji: '🥈', label: 'シルバー' },
+  { tier: 3, mins: 400, gold: 800, emoji: '🥇', label: 'ゴールド' },
 ];
 
 function pad2(n) { return String(n).padStart(2, '0'); }
@@ -1153,19 +1218,21 @@ function weekKey(d = new Date()) {
 
 function dayTotalSubj(dateKey) {
   const day = state.daily[dateKey];
-  if (!day) return { math:0, japanese:0, science:0, social:0, total:0 };
-  return { ...day, total: day.math + day.japanese + day.science + day.social };
+  if (!day) return { math:0, japanese:0, science:0, social:0, review:0, total:0 };
+  const review = day.review || 0;
+  return { ...day, review, total: day.math + day.japanese + day.science + day.social + review };
 }
 
 function weekStatsBySubject(weekStart = weekKey()) {
   const start = new Date(weekStart + 'T00:00:00');
-  const out = { math:0, japanese:0, science:0, social:0, total:0 };
+  const out = { math:0, japanese:0, science:0, social:0, review:0, total:0 };
   for (let i = 0; i < 7; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
     const ds = dayTotalSubj(dateKeyOf(d));
     out.math += ds.math; out.japanese += ds.japanese;
     out.science += ds.science; out.social += ds.social;
+    out.review += ds.review;
     out.total += ds.total;
   }
   return out;
@@ -1175,19 +1242,21 @@ function monthTotalMin(mk = monthKey()) {
   let total = 0;
   for (const [date, day] of Object.entries(state.daily)) {
     if (date.startsWith(mk + '-')) {
-      total += (day.math + day.japanese + day.science + day.social);
+      total += (day.math + day.japanese + day.science + day.social + (day.review || 0));
     }
   }
   return total;
 }
 
 function monthStatsBySubject(mk = monthKey()) {
-  const out = { math:0, japanese:0, science:0, social:0, total:0 };
+  const out = { math:0, japanese:0, science:0, social:0, review:0, total:0 };
   for (const [date, day] of Object.entries(state.daily)) {
     if (date.startsWith(mk + '-')) {
+      const review = day.review || 0;
       out.math += day.math; out.japanese += day.japanese;
       out.science += day.science; out.social += day.social;
-      out.total += (day.math + day.japanese + day.science + day.social);
+      out.review += review;
+      out.total += (day.math + day.japanese + day.science + day.social + review);
     }
   }
   return out;
@@ -1202,21 +1271,32 @@ function awardTrophy(type, tierObj, period, periodLabel) {
     gold: tierObj.gold, date: Date.now(),
   });
   state.gold += tierObj.gold;
-  const kindLabel = type === 'weekly' ? '週' : '月';
+  const kindLabel =
+    type === 'weekly'        ? '週' :
+    type === 'monthly'       ? '月' :
+    type === 'daily-review'  ? '今日のやり直し' :
+    type === 'weekly-review' ? '週のやり直し' : '';
   showToast(
-    `✨サプライズ！✨\n${periodLabel}\n${tierObj.emoji} ${kindLabel}のトロフィー (${tierObj.label})\n+${tierObj.gold}G`,
+    `✨サプライズ！✨\n${periodLabel}\n${tierObj.emoji} ${kindLabel}王 (${tierObj.label})\n+${tierObj.gold}G`,
     { trophy: true }
   );
 }
 
 function checkThresholds() {
-  // 今週
+  // 今週(全体)
   const wk = weekKey();
   const weekly = weekStatsBySubject(wk).total;
   const wkLabel = `${wk.replace(/-/g,'/')} 〜 の週`;
   for (const tier of WEEKLY_TIERS) {
     if (weekly >= tier.mins && !hasTrophy('weekly', tier.tier, wk)) {
       awardTrophy('weekly', tier, wk, wkLabel);
+    }
+  }
+  // 今週(やり直し)
+  const weeklyReview = weekStatsBySubject(wk).review;
+  for (const tier of WEEKLY_REVIEW_TIERS) {
+    if (weeklyReview >= tier.mins && !hasTrophy('weekly-review', tier.tier, wk)) {
+      awardTrophy('weekly-review', tier, wk, `${wkLabel} やり直し`);
     }
   }
   // 今月
@@ -1226,6 +1306,17 @@ function checkThresholds() {
   for (const tier of MONTHLY_TIERS) {
     if (monthly >= tier.mins && !hasTrophy('monthly', tier.tier, mk)) {
       awardTrophy('monthly', tier, mk, mkLabel);
+    }
+  }
+}
+
+function checkDailyReviewThresholds() {
+  const today = todayKey();
+  const reviewMin = state.daily[today]?.review || 0;
+  const dateLabel = `${today.replace(/-/g,'/')}のやり直し`;
+  for (const tier of DAILY_REVIEW_TIERS) {
+    if (reviewMin >= tier.mins && !hasTrophy('daily-review', tier.tier, today)) {
+      awardTrophy('daily-review', tier, today, dateLabel);
     }
   }
 }
@@ -1947,38 +2038,49 @@ function stopBattleLoop() {
   battleLoopId = null;
 }
 
+function renderSubjectCard(subj) {
+  const info = SUBJECT_INFO[subj];
+  const lv = levelOf(subj);
+  const exp = expInLevel(subj);
+  const w = currentWeapon(subj);
+  const banked = state.subjects[subj].bankedSec || 0;
+  const isStudying = T.subject === subj;
+  const studyingClass = isStudying ? ' studying' : '';
+  const reviewClass = subj === 'review' ? ' review' : '';
+  const bgmOn = state.bgm?.subjects?.[subj] !== false;
+  const reviewBanner = subj === 'review'
+    ? `<div class="review-banner">✨ けいけんち2倍 / ゴールド2倍 ✨</div>`
+    : '';
+  return `
+    <div class="subject${studyingClass}${reviewClass}" id="sub-${subj}">
+      ${reviewBanner}
+      <div class="subject-head">
+        <div class="subject-name">${info.emoji} ${info.name}</div>
+        <div class="subject-level">Lv ${lv}</div>
+      </div>
+      <div class="expbar">
+        <div class="fill" style="width:${exp}%"></div>
+        <div class="text">${exp} / 100</div>
+      </div>
+      <div class="weapon">武器: ${w.name}</div>
+      <div class="subject-actions">
+        ${isStudying
+            ? `<span class="small">勉強ちゅう…</span>`
+            : `<button data-start="${subj}">勉強スタート</button>`}
+        <button class="subj-bgm-btn ${bgmOn ? 'bgm-on' : 'bgm-off'}" data-bgm-subj="${subj}" title="この教科のBGM">${bgmOn ? '🎵' : '🔇'}</button>
+        ${banked > 0 ? `<span class="small">(まえの端数 ${banked}秒)</span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
 function renderSubjects() {
   const root = document.getElementById('subjects');
-  root.innerHTML = SUBJECTS.map(subj => {
-    const info = SUBJECT_INFO[subj];
-    const lv = levelOf(subj);
-    const exp = expInLevel(subj);
-    const w = currentWeapon(subj);
-    const banked = state.subjects[subj].bankedSec || 0;
-    const isStudying = T.subject === subj;
-    const studyingClass = isStudying ? ' studying' : '';
-    const bgmOn = state.bgm?.subjects?.[subj] !== false;
-    return `
-      <div class="subject${studyingClass}" id="sub-${subj}">
-        <div class="subject-head">
-          <div class="subject-name">${info.emoji} ${info.name}</div>
-          <div class="subject-level">Lv ${lv}</div>
-        </div>
-        <div class="expbar">
-          <div class="fill" style="width:${exp}%"></div>
-          <div class="text">${exp} / 100</div>
-        </div>
-        <div class="weapon">武器: ${w.name}</div>
-        <div class="subject-actions">
-          ${isStudying
-              ? `<span class="small">勉強ちゅう…</span>`
-              : `<button data-start="${subj}">勉強スタート</button>`}
-          <button class="subj-bgm-btn ${bgmOn ? 'bgm-on' : 'bgm-off'}" data-bgm-subj="${subj}" title="この教科のBGM">${bgmOn ? '🎵' : '🔇'}</button>
-          ${banked > 0 ? `<span class="small">(まえの端数 ${banked}秒)</span>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
+  const NORMAL_SUBJECTS = ['math','japanese','science','social'];
+  root.innerHTML = `
+    <div class="review-wrap">${renderSubjectCard('review')}</div>
+    <div class="subjects-grid">${NORMAL_SUBJECTS.map(renderSubjectCard).join('')}</div>
+  `;
 
   root.querySelectorAll('button[data-start]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2086,7 +2188,11 @@ function startBattle(subj, boss) {
   battle.boss = boss;
   battle.bossHp = boss.hp;
   battle.playerHp = 3;
-  battle.pool = shuffle([...QUIZZES[subj]]);
+  // やり直しのボスは4教科ミックス
+  const sourceQuestions = subj === 'review'
+    ? ['math','japanese','science','social'].flatMap(k => QUIZZES[k])
+    : QUIZZES[subj];
+  battle.pool = shuffle([...sourceQuestions]);
   battle.log = `${boss.name}が あらわれた！\n${SUBJECT_INFO[subj].name}の もんだいに こたえろ！`;
   renderBattle();
 }
@@ -2116,7 +2222,12 @@ function shuffle(arr) {
 }
 
 function nextQuestion() {
-  if (battle.pool.length === 0) battle.pool = shuffle([...QUIZZES[battle.subject]]);
+  if (battle.pool.length === 0) {
+    const src = battle.subject === 'review'
+      ? ['math','japanese','science','social'].flatMap(k => QUIZZES[k])
+      : QUIZZES[battle.subject];
+    battle.pool = shuffle([...src]);
+  }
   return battle.pool.shift();
 }
 
