@@ -588,6 +588,50 @@ img.battle-enemy {
   100% { transform: translateY(-50%) rotate(-30deg) scaleX(1); opacity: 0; }
 }
 
+/* ショップ */
+.shop-item {
+  border: 2px solid #444;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.shop-item.owned { border-color: var(--dq-green); }
+.shop-item.disabled { opacity: 0.45; }
+.shop-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.shop-item-emoji { font-size: 28px; flex-shrink: 0; }
+.shop-item-info { min-width: 0; flex: 1; }
+.shop-item-name { font-size: 14px; font-weight: bold; }
+.shop-item-desc { font-size: 11px; color: var(--dq-dim); margin-top: 2px; }
+.shop-item-meta { font-size: 11px; color: var(--dq-yellow); margin-top: 2px; }
+.shop-buy-btn {
+  font-size: 13px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 90px;
+}
+.shop-gold-display {
+  text-align: center;
+  margin: 8px 0 14px;
+  font-size: 16px;
+}
+.shop-gold-display .v { color: var(--dq-yellow); font-weight: bold; }
+.active-boost-list {
+  margin: 6px 0;
+  font-size: 12px;
+  color: var(--dq-green);
+}
+.active-boost-list .item { margin: 2px 0; }
+
 /* ねぎらいメッセージ */
 .encouragement {
   font-size: 18px;
@@ -841,6 +885,9 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
   <div class="row mt12">
     <button id="btn-items" class="btn-yellow" style="flex:1;">⚔ アイテム ずかん</button>
     <button id="btn-review" class="btn-yellow" style="flex:1;">📊 ふりかえり</button>
+  </div>
+  <div class="row mt12">
+    <button id="btn-shop" class="btn-yellow" style="flex:1;">🛒 おみせ</button>
   </div>
   <div class="bgm-row">
     <button id="btn-bgm-toggle" class="bgm-on" style="min-width:120px;">🎵 BGM ON</button>
@@ -1109,15 +1156,17 @@ function defaultState() {
     hero:    { name: 'ゆうしゃ' },
     gold:    0,
     subjects: {
-      math:     { totalMin: 0, bankedSec: 0, defeated: [] },
-      japanese: { totalMin: 0, bankedSec: 0, defeated: [] },
-      science:  { totalMin: 0, bankedSec: 0, defeated: [] },
-      social:   { totalMin: 0, bankedSec: 0, defeated: [] },
-      review:   { totalMin: 0, bankedSec: 0, defeated: [] },
+      math:     { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
+      japanese: { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
+      science:  { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
+      social:   { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
+      review:   { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
     },
     history: { lastStudyAt: 0, lastSessionSec: 0 },
     daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social, review }
     trophies: [],  // [{type:'weekly'|'monthly'|'daily-review', tier, period, gold, date}]
+    inventory: {}, // {'hint-ticket': 2, 'king-crown': true, ...}
+    activeBoosts: [], // [{id, expMult, goldMult, expiresAt}]
     bgm:      {
       enabled: false,
       volume: 5,
@@ -1190,11 +1239,15 @@ function saveState() {
 function expRate(subj) {
   return subj === 'review' ? 2 : 1;
 }
+function totalExpOf(subj) {
+  const s = state.subjects[subj];
+  return s.totalMin * expRate(subj) + (s.bonusExp || 0);
+}
 function levelOf(subj) {
-  return 1 + Math.floor(state.subjects[subj].totalMin * expRate(subj) / 100);
+  return 1 + Math.floor(totalExpOf(subj) / 100);
 }
 function expInLevel(subj) {
-  return (state.subjects[subj].totalMin * expRate(subj)) % 100;
+  return Math.floor(totalExpOf(subj) % 100);
 }
 function totalLevel() {
   return SUBJECTS.reduce((s, k) => s + levelOf(k), 0);
@@ -1220,12 +1273,29 @@ function nextBoss(subj) {
 // タイマー
 // ============================================================
 
+function getActiveMultipliers() {
+  const now = Date.now();
+  state.activeBoosts = (state.activeBoosts || []).filter(b => b.expiresAt > now);
+  let expMult = 1, goldMult = 1;
+  for (const b of state.activeBoosts) {
+    if ((b.expMult  || 1) > expMult)  expMult  = b.expMult;
+    if ((b.goldMult || 1) > goldMult) goldMult = b.goldMult;
+  }
+  return { expMult, goldMult };
+}
+
 function awardMinutes(subj, mins) {
   const before = levelOf(subj);
+  const { expMult, goldMult: boostGoldMult } = getActiveMultipliers();
   state.subjects[subj].totalMin += mins;
-  // やり直しは ゴールドも 2倍
+  // ブースト分のEXPは bonusExp に加算 (totalMinは実時間を保つ)
+  if (expMult > 1) {
+    const bonus = mins * expRate(subj) * (expMult - 1);
+    state.subjects[subj].bonusExp = (state.subjects[subj].bonusExp || 0) + bonus;
+  }
+  // やり直しは ゴールドも 2倍 + ブースト分
   const goldMult = (subj === 'review') ? 2 : 1;
-  state.gold += mins * goldMult;
+  state.gold += Math.round(mins * goldMult * boostGoldMult);
 
   // 日次記録
   const today = todayKey();
@@ -1242,7 +1312,7 @@ function awardMinutes(subj, mins) {
   const after = levelOf(subj);
   if (after > before) {
     const gainedLevels = after - before;
-    const bonus = gainedLevels * 50 * goldMult;
+    const bonus = Math.round(gainedLevels * 50 * goldMult * boostGoldMult);
     state.gold += bonus;
     const w = currentWeapon(subj);
     showToast(`${SUBJECT_INFO[subj].name}の レベルが ${after} に あがった！\n${bonus}G ボーナス！\n武器: ${w.name}`);
@@ -1279,6 +1349,34 @@ const WEEKLY_REVIEW_TIERS = [
   { tier: 2, mins: 200, gold: 400, emoji: '🥈', label: 'シルバー' },
   { tier: 3, mins: 400, gold: 800, emoji: '🥇', label: 'ゴールド' },
 ];
+
+// ショップ
+const SHOP_ITEMS = {
+  battle: [
+    { id: 'hint-ticket', name: 'ヒント券',         emoji: '🎯',   price:   100, desc: 'ボス戦で 4択→3択 にできる(1問だけ)',   stackable: true },
+    { id: 'revive',      name: 'ふっかつ薬',       emoji: '❤️‍🩹', price:   200, desc: 'ボスに負けても HP1で 自動ふっかつ',     stackable: true },
+    { id: 'lightning',   name: 'いかずちの巻物',   emoji: '⚡',   price:   400, desc: 'ボスに 即2ダメージ あたえる',           stackable: true },
+    { id: 'power-pot',   name: 'ちからの薬',       emoji: '💥',   price:   160, desc: '次のボス戦で HPが 3→5 になる',           stackable: true },
+  ],
+  boost: [
+    { id: 'exp-charm',   name: 'けいけんちの お守り', emoji: '✨', price:   600, desc: '30分間 EXP 1.5倍',                    stackable: true, durationMin: 30, expMult: 1.5, goldMult: 1 },
+    { id: 'gold-charm',  name: 'ゴールドの お守り',   emoji: '💰', price:   400, desc: '30分間 Gold 1.5倍',                   stackable: true, durationMin: 30, expMult: 1,   goldMult: 1.5 },
+    { id: 'god-breath',  name: '神のいぶき',         emoji: '🌟', price:  2000, desc: '60分間 EXP・Gold 2倍',                 stackable: true, durationMin: 60, expMult: 2,   goldMult: 2 },
+  ],
+  collection: [
+    { id: 'fame-shield', name: '名声の盾',          emoji: '🏆',  price:  1000, desc: 'アイテムずかんに かざれる',           stackable: false },
+    { id: 'king-crown',  name: '王者の冠',          emoji: '👑',  price:  6000, desc: 'タイトルのキャラ名よこに 表示',       stackable: false },
+    { id: 'dragon-scale',name: '古代の竜の鱗',      emoji: '🐉',  price: 10000, desc: 'レア装飾コレクター用',                 stackable: false },
+  ],
+};
+
+function findShopItem(id) {
+  for (const cat of Object.values(SHOP_ITEMS)) {
+    const found = cat.find(i => i.id === id);
+    if (found) return found;
+  }
+  return null;
+}
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function dateKeyOf(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
@@ -1462,7 +1560,8 @@ function startGame() {
 }
 
 function refreshTitleStats() {
-  document.getElementById('title-name').textContent = state.hero.name || 'ゆうしゃ';
+  const crown = hasCollectionItem('king-crown') ? ' 👑' : '';
+  document.getElementById('title-name').textContent = (state.hero.name || 'ゆうしゃ') + crown;
   document.getElementById('title-level').textContent = totalLevel();
   document.getElementById('title-total').textContent = fmtDuration(totalMinutes() * 60);
 }
@@ -1556,6 +1655,134 @@ function showEndDay() {
     </div>
   `;
   document.getElementById('end-close').onclick = showTitleScreen;
+}
+
+// ============================================================
+// おみせ (ショップ)
+// ============================================================
+
+function getInventoryCount(id) {
+  const v = state.inventory?.[id];
+  if (typeof v === 'number') return v;
+  if (v === true) return 1;
+  return 0;
+}
+function hasCollectionItem(id) {
+  return state.inventory?.[id] === true;
+}
+
+function showShop() {
+  const root = document.getElementById('modal-root');
+  const renderCategory = (title, items) => `
+    <div class="collection-section">
+      <div class="section-title">${title}</div>
+      ${items.map(renderShopItem).join('')}
+    </div>
+  `;
+  // アクティブなブースト
+  const now = Date.now();
+  const activeBoosts = (state.activeBoosts || []).filter(b => b.expiresAt > now);
+  const boostsHtml = activeBoosts.length > 0 ? `
+    <div class="active-boost-list">
+      ${activeBoosts.map(b => {
+        const item = findShopItem(b.id);
+        const remainMin = Math.ceil((b.expiresAt - now) / 60000);
+        return `<div class="item">⏳ ${item.emoji} ${item.name} (残り ${remainMin}分)</div>`;
+      }).join('')}
+    </div>
+  ` : '';
+
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="max-width:560px;">
+        <div class="panel-title center">▼ おみせ</div>
+        <div class="shop-gold-display">所持ゴールド: <span class="v">${state.gold} G</span></div>
+        ${boostsHtml}
+        ${renderCategory('🗡 戦闘アイテム', SHOP_ITEMS.battle)}
+        ${renderCategory('⏰ 勉強ブースト', SHOP_ITEMS.boost)}
+        ${renderCategory('👑 コレクション', SHOP_ITEMS.collection)}
+        <div class="confirm-btns">
+          <button id="shop-close">とじる</button>
+        </div>
+      </div>
+    </div>
+  `;
+  root.querySelectorAll('button[data-buy]').forEach(btn => {
+    btn.addEventListener('click', () => buyItem(btn.dataset.buy));
+  });
+  document.getElementById('shop-close').onclick = closeModal;
+}
+
+function renderShopItem(item) {
+  const isCollection = !item.stackable;
+  const owned = isCollection ? hasCollectionItem(item.id) : getInventoryCount(item.id);
+  const canAfford = state.gold >= item.price;
+  let metaText = '';
+  let buyText = `${item.price}G で 買う`;
+  let disabled = !canAfford;
+  let extraClass = '';
+  if (isCollection && owned) {
+    buyText = '✓ 所持済み';
+    disabled = true;
+    extraClass = ' owned';
+  } else if (item.stackable && owned > 0) {
+    metaText = `所持: ${owned}こ`;
+  }
+  if (disabled && !owned) extraClass = ' disabled';
+  return `
+    <div class="shop-item${extraClass}">
+      <div class="shop-item-main">
+        <span class="shop-item-emoji">${item.emoji}</span>
+        <div class="shop-item-info">
+          <div class="shop-item-name">${escapeHtml(item.name)}</div>
+          <div class="shop-item-desc">${escapeHtml(item.desc)}</div>
+          ${metaText ? `<div class="shop-item-meta">${metaText}</div>` : ''}
+        </div>
+      </div>
+      <button data-buy="${item.id}" ${disabled ? 'disabled' : ''} class="shop-buy-btn ${canAfford && !owned ? 'btn-yellow' : ''}">${buyText}</button>
+    </div>
+  `;
+}
+
+function buyItem(itemId) {
+  const item = findShopItem(itemId);
+  if (!item) return;
+  if (state.gold < item.price) {
+    showToast('ゴールドが たりない！');
+    return;
+  }
+  // コレクションは1つだけ
+  if (!item.stackable && hasCollectionItem(itemId)) {
+    showToast('すでに もってる');
+    return;
+  }
+  state.gold -= item.price;
+  if (!state.inventory) state.inventory = {};
+  if (!item.stackable) {
+    state.inventory[itemId] = true;
+  } else {
+    state.inventory[itemId] = (state.inventory[itemId] || 0) + 1;
+  }
+  // ブーストアイテムは即時発動 (買ったら有効化)
+  if (item.durationMin) {
+    activateBoost(item);
+  }
+  saveState();
+  showToast(`${item.emoji} ${item.name} を てに いれた！`);
+  render();
+  showShop(); // 在庫表示を更新
+}
+
+function activateBoost(item) {
+  state.activeBoosts = state.activeBoosts || [];
+  // 同じIDの古いものは破棄
+  state.activeBoosts = state.activeBoosts.filter(b => b.id !== item.id);
+  state.activeBoosts.push({
+    id: item.id,
+    expMult: item.expMult || 1,
+    goldMult: item.goldMult || 1,
+    expiresAt: Date.now() + item.durationMin * 60 * 1000,
+  });
 }
 
 function showReflection() {
@@ -2349,12 +2576,22 @@ function startBattle(subj, boss) {
   battle.boss = boss;
   battle.bossHp = boss.hp;
   battle.playerHp = 3;
+  battle.playerHpMax = 3;
+  battle.hintApplied = false;
+  // ちからの薬: HP3→5 (持ってたら自動消費)
+  if (getInventoryCount('power-pot') > 0) {
+    state.inventory['power-pot'] -= 1;
+    battle.playerHp = 5;
+    battle.playerHpMax = 5;
+    showToast('💥 ちからの薬を 使った！\nHPが 5に なった');
+  }
   // やり直しのボスは4教科ミックス
   const sourceQuestions = subj === 'review'
     ? ['math','japanese','science','social'].flatMap(k => QUIZZES[k])
     : QUIZZES[subj];
   battle.pool = shuffle([...sourceQuestions]);
   battle.log = `${boss.name}が あらわれた！\n${SUBJECT_INFO[subj].name}の もんだいに こたえろ！`;
+  saveState();
   renderBattle();
 }
 
@@ -2389,6 +2626,7 @@ function nextQuestion() {
       : QUIZZES[battle.subject];
     battle.pool = shuffle([...src]);
   }
+  battle.hintApplied = false;  // 1問ごとにリセット
   return battle.pool.shift();
 }
 
@@ -2398,7 +2636,14 @@ function renderBattle() {
 
   const q = battle.currentQ || (battle.currentQ = nextQuestion());
   const heartsBoss = renderHearts(battle.bossHp, battle.boss.hp);
-  const heartsP    = renderHearts(battle.playerHp, 3);
+  const heartsP    = renderHearts(battle.playerHp, battle.playerHpMax || 3);
+
+  // ヒント券で1選択肢を非表示 (this.question only)
+  const hiddenWrong = (battle.hintApplied && q.hiddenWrong != null) ? q.hiddenWrong : -1;
+
+  const hintCount  = getInventoryCount('hint-ticket');
+  const lightCount = getInventoryCount('lightning');
+  const reviveCount= getInventoryCount('revive');
 
   root.innerHTML = `
     <div class="modal-bg" id="battle-bg">
@@ -2417,7 +2662,12 @@ function renderBattle() {
         <div class="battle-message" id="battle-msg">${battle.log}</div>
         <div class="quiz-question">Q. ${q.q}</div>
         <div class="quiz-choices" id="choices">
-          ${q.choices.map((c, i) => `<button data-i="${i}">${i+1}. ${c}</button>`).join('')}
+          ${q.choices.map((c, i) => i === hiddenWrong ? '' : `<button data-i="${i}">${i+1}. ${c}</button>`).join('')}
+        </div>
+        <div class="row mt8" style="flex-wrap:wrap; gap:6px;">
+          ${hintCount  > 0 && !battle.hintApplied ? `<button class="btn-yellow battle-item-btn" id="use-hint">🎯 ヒント券 (${hintCount})</button>` : ''}
+          ${lightCount > 0 ? `<button class="btn-yellow battle-item-btn" id="use-lightning">⚡ いかずち (${lightCount})</button>` : ''}
+          ${reviveCount > 0 ? `<span class="small">❤️‍🩹 ふっかつ薬 ${reviveCount}個(自動)</span>` : ''}
         </div>
         <div class="row mt12">
           <button class="btn-yellow" id="battle-flee">にげる</button>
@@ -2428,6 +2678,8 @@ function renderBattle() {
   document.querySelectorAll('#choices button').forEach(btn => {
     btn.addEventListener('click', () => answerChoice(parseInt(btn.dataset.i, 10)));
   });
+  document.getElementById('use-hint')?.addEventListener('click', useHintTicket);
+  document.getElementById('use-lightning')?.addEventListener('click', useLightningScroll);
   document.getElementById('battle-flee').addEventListener('click', () => {
     showConfirm('にげますか？', '今のボス戦は キャンセルされるよ', () => {
       battle.active = false;
@@ -2436,6 +2688,36 @@ function renderBattle() {
       render();
     });
   });
+}
+
+function useHintTicket() {
+  if (!battle.active || !battle.currentQ) return;
+  if (getInventoryCount('hint-ticket') <= 0) return;
+  if (battle.hintApplied) return;
+  const q = battle.currentQ;
+  // 正解じゃない選択肢から1つを非表示
+  const wrongIndices = q.choices.map((_, i) => i).filter(i => i !== q.a);
+  q.hiddenWrong = wrongIndices[Math.floor(Math.random() * wrongIndices.length)];
+  battle.hintApplied = true;
+  state.inventory['hint-ticket'] -= 1;
+  saveState();
+  showToast('🎯 ヒント券を つかった！');
+  renderBattle();
+}
+
+function useLightningScroll() {
+  if (!battle.active) return;
+  if (getInventoryCount('lightning') <= 0) return;
+  state.inventory['lightning'] -= 1;
+  battle.bossHp -= 2;
+  battle.log = `⚡ いかずちが ${battle.boss.name}に 2ダメージ！`;
+  saveState();
+  if (battle.bossHp <= 0) {
+    setTimeout(() => endBattle(true), 700);
+    rerenderBattleStatsOnly(`${battle.boss.name}を たおした！`);
+    return;
+  }
+  renderBattle();
 }
 
 function renderHearts(cur, max) {
@@ -2474,6 +2756,17 @@ function answerChoice(idx) {
     return;
   }
   if (battle.playerHp <= 0) {
+    // ふっかつ薬チェック
+    if (getInventoryCount('revive') > 0) {
+      state.inventory['revive'] -= 1;
+      battle.playerHp = 1;
+      battle.log = `❤️‍🩹 ふっかつ薬で HP1で よみがえった！`;
+      saveState();
+      setTimeout(() => renderBattle(), 800);
+      rerenderBattleStatsOnly('ふっかつ！');
+      battle.currentQ = null;
+      return;
+    }
     setTimeout(() => endBattle(false), 700);
     rerenderBattleStatsOnly(`やられてしまった…`);
     return;
@@ -2565,6 +2858,7 @@ document.getElementById('btn-end-day').addEventListener('click', showEndDay);
 document.getElementById('btn-items').addEventListener('click', showCollection);
 document.getElementById('btn-review').addEventListener('click', showReflection);
 document.getElementById('btn-back-title').addEventListener('click', showTitleScreen);
+document.getElementById('btn-shop').addEventListener('click', showShop);
 
 document.getElementById('btn-bgm-toggle').addEventListener('click', () => {
   setBgmEnabled(!state.bgm.enabled);
@@ -2591,6 +2885,8 @@ function showCollection() {
           ${SUBJECTS.map(renderTrophyList).join('')}
         </div>
 
+        ${renderOwnedShopItems()}
+
         ${renderEarnedSurpriseTrophies()}
 
         <div class="confirm-btns">
@@ -2600,6 +2896,38 @@ function showCollection() {
     </div>
   `;
   document.getElementById('col-close').onclick = closeModal;
+}
+
+function renderOwnedShopItems() {
+  const all = [...SHOP_ITEMS.battle, ...SHOP_ITEMS.boost, ...SHOP_ITEMS.collection];
+  const owned = all
+    .map(it => {
+      const isColl = !it.stackable;
+      const count = isColl ? (hasCollectionItem(it.id) ? 1 : 0) : getInventoryCount(it.id);
+      return count > 0 ? { it, count, isColl } : null;
+    })
+    .filter(Boolean);
+  if (owned.length === 0) {
+    return `
+      <div class="collection-section">
+        <div class="section-title">🛒 持っているアイテム</div>
+        <div class="small">まだ何も持ってない。おみせで買おう！</div>
+      </div>
+    `;
+  }
+  const items = owned.map(({it, count, isColl}) => `
+    <div class="item-row">
+      <span class="item-icon">${it.emoji}</span>
+      <span class="item-name">${escapeHtml(it.name)}</span>
+      <span class="item-info">${isColl ? '所持済み' : `${count}こ`}</span>
+    </div>
+  `).join('');
+  return `
+    <div class="collection-section">
+      <div class="section-title">🛒 持っているアイテム</div>
+      ${items}
+    </div>
+  `;
 }
 
 function renderWeaponList(subj) {
