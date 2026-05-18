@@ -1765,6 +1765,8 @@ let confirmShown  = false;
 let autoStopTimer = null;
 
 function maybeShowStudyConfirm() {
+  // DOM 上に既に表示中なら何もしない (state mismatch 防止)
+  if (document.getElementById('study-yes')) { confirmShown = true; return; }
   if (confirmShown) return;
   if (!T.lastConfirmAt) return;
   if (Date.now() - T.lastConfirmAt < CONFIRM_INTERVAL_MS) return;
@@ -2715,10 +2717,31 @@ window.addEventListener('pagehide', () => {
 });
 
 // 画面復帰時に表示を即更新 (経過時間は Date.now() ベースで正確に反映される)
+// iPad Safari は画面ロック中に setInterval が止まるため、戻った瞬間に確認も走らせる
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && T.running) {
     tCommit();
     render(false);
+    maybeShowStudyConfirm();
+  }
+});
+window.addEventListener('focus', () => {
+  if (T.running) {
+    tCommit();
+    render(false);
+    maybeShowStudyConfirm();
+  }
+});
+// iPad の BFCache 復帰時にも発動
+window.addEventListener('pageshow', (e) => {
+  if (T.running) {
+    // setInterval が止まっていた場合は再開
+    if (!T.intervalId) {
+      T.intervalId = setInterval(tTick, 500);
+    }
+    tCommit();
+    render(false);
+    maybeShowStudyConfirm();
   }
 });
 
