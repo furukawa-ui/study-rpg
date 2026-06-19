@@ -232,6 +232,40 @@ button:disabled:active { background: #000; color: var(--dq-text); }
   max-height: 92vh;
   overflow-y: auto;
 }
+.milestone-modal {
+  text-align: center;
+  border-color: var(--dq-yellow);
+  box-shadow: 0 0 24px rgba(255,215,0,0.5);
+  max-width: 420px;
+}
+.milestone-emoji {
+  font-size: 64px;
+  line-height: 1;
+  margin: 6px 0 4px;
+  animation: msPop 0.6s ease-out;
+}
+.milestone-head {
+  color: var(--dq-yellow);
+  font-size: 15px;
+  letter-spacing: 2px;
+}
+.milestone-title {
+  font-size: 26px;
+  color: #fff;
+  margin: 8px 0;
+  text-shadow: 0 0 10px rgba(255,215,0,0.8);
+}
+.milestone-sub { font-size: 14px; color: var(--dq-dim); }
+.milestone-gold {
+  font-size: 18px;
+  color: var(--dq-yellow);
+  margin: 10px 0 4px;
+}
+@keyframes msPop {
+  0%   { transform: scale(0.2) rotate(-20deg); opacity: 0; }
+  70%  { transform: scale(1.3) rotate(8deg);  opacity: 1; }
+  100% { transform: scale(1)   rotate(0deg); }
+}
 
 /* バトル */
 .battle-stats { display: flex; justify-content: space-around; margin: 12px 0; }
@@ -940,6 +974,13 @@ const WEAPONS = {
     { lv: 12, name: 'らいじんのつるぎ' },
     { lv: 18, name: 'ひかりのつるぎ' },
     { lv: 25, name: 'てんくうのつるぎ' },
+    { lv: 32, name: 'しんくうのつるぎ' },
+    { lv: 40, name: 'はめつのつるぎ' },
+    { lv: 50, name: 'しんりゅうのつるぎ' },
+    { lv: 60, name: 'こんとんのつるぎ' },
+    { lv: 72, name: 'むげんのつるぎ' },
+    { lv: 85, name: 'てんおうのつるぎ' },
+    { lv:100, name: 'すうりのしんけん' },
   ],
   japanese: [
     { lv:  1, name: 'きのつえ' },
@@ -949,6 +990,13 @@ const WEAPONS = {
     { lv: 12, name: 'いのりのつえ' },
     { lv: 18, name: 'せいなるつえ' },
     { lv: 25, name: 'てんしのつえ' },
+    { lv: 32, name: 'だいまどうのつえ' },
+    { lv: 40, name: 'こだいのつえ' },
+    { lv: 50, name: 'しんわのつえ' },
+    { lv: 60, name: 'ことのはのつえ' },
+    { lv: 72, name: 'しんりのつえ' },
+    { lv: 85, name: 'そうせいのつえ' },
+    { lv:100, name: 'ことだまのしんづえ' },
   ],
   science: [
     { lv:  1, name: 'きのゆみ' },
@@ -958,6 +1006,13 @@ const WEAPONS = {
     { lv: 12, name: 'げんそのゆみ' },
     { lv: 18, name: 'すいせいのゆみ' },
     { lv: 25, name: 'うちゅうのゆみ' },
+    { lv: 32, name: 'ぎんがのゆみ' },
+    { lv: 40, name: 'あんこくのゆみ' },
+    { lv: 50, name: 'こうそくのゆみ' },
+    { lv: 60, name: 'げんしのゆみ' },
+    { lv: 72, name: 'じくうのゆみ' },
+    { lv: 85, name: 'むげんのゆみ' },
+    { lv:100, name: 'しんりのしんきゅう' },
   ],
   social: [
     { lv:  1, name: 'きのたて' },
@@ -967,6 +1022,13 @@ const WEAPONS = {
     { lv: 12, name: 'ぐんしのたて' },
     { lv: 18, name: 'おうしゃのたて' },
     { lv: 25, name: 'けんこくのたて' },
+    { lv: 32, name: 'ていこくのたて' },
+    { lv: 40, name: 'れきしのたて' },
+    { lv: 50, name: 'せかいのたて' },
+    { lv: 60, name: 'ぶんめいのたて' },
+    { lv: 72, name: 'えいゆうのたて' },
+    { lv: 85, name: 'でんせつのたて' },
+    { lv:100, name: 'れきしのしんたて' },
   ],
   review: [
     { lv:  1, name: '気づきのレンズ' },
@@ -976,6 +1038,13 @@ const WEAPONS = {
     { lv: 12, name: '賢者のメガネ' },
     { lv: 18, name: '叡智の冠' },
     { lv: 25, name: '究極の理解' },
+    { lv: 32, name: '真理のレンズ' },
+    { lv: 40, name: '全知の眼' },
+    { lv: 50, name: '完璧の眼' },
+    { lv: 60, name: '達観の境地' },
+    { lv: 72, name: '悟りの瞳' },
+    { lv: 85, name: '賢者の極意' },
+    { lv:100, name: '全知全能の眼' },
   ],
 };
 
@@ -987,6 +1056,12 @@ const BOSSES = {
     { id: 'm3', lv: 10, name: 'ひりつのドラゴン',   hp: 5, gold: 100 },
     { id: 'm4', lv: 15, name: 'はやさのキマイラ',   hp: 6, gold: 150 },
     { id: 'm5', lv: 25, name: 'かいせいのまおう',   hp: 8, gold: 400 },
+    { id: 'm6', lv: 35, name: 'むげんのスフィンクス', hp:  9, gold:  500 },
+    { id: 'm7', lv: 45, name: 'こうしきデビル',       hp: 10, gold:  700 },
+    { id: 'm8', lv: 60, name: 'すうりのドラゴン',     hp: 11, gold: 1000 },
+    { id: 'm9', lv: 75, name: 'むげんだいゴーレム',   hp: 12, gold: 1400 },
+    { id: 'm10', lv: 90, name: 'ぜったいりょういきのまじん', hp: 13, gold: 2000 },
+    { id: 'm11', lv:100, name: 'すうがくのしんおう',  hp: 14, gold: 3000 },
   ],
   japanese: [
     { id: 'j1', lv:  3, name: 'かなウィッチ',       hp: 3, gold:  30 },
@@ -994,6 +1069,12 @@ const BOSSES = {
     { id: 'j3', lv: 10, name: 'かんようくデーモン', hp: 5, gold: 100 },
     { id: 'j4', lv: 15, name: 'こぶんヴァンパイア', hp: 6, gold: 150 },
     { id: 'j5', lv: 25, name: 'ことだまのまおう',   hp: 8, gold: 400 },
+    { id: 'j6', lv: 35, name: 'ごいモンスター',     hp:  9, gold:  500 },
+    { id: 'j7', lv: 45, name: 'こてんゴースト',     hp: 10, gold:  700 },
+    { id: 'j8', lv: 60, name: 'はくぶんデーモン',   hp: 11, gold: 1000 },
+    { id: 'j9', lv: 75, name: 'しんわのりゅう',     hp: 12, gold: 1400 },
+    { id: 'j10', lv: 90, name: 'ことばのまじん',    hp: 13, gold: 2000 },
+    { id: 'j11', lv:100, name: 'ぶんごうのしんおう', hp: 14, gold: 3000 },
   ],
   science: [
     { id: 's1', lv:  3, name: 'メダカドラゴン',     hp: 3, gold:  30 },
@@ -1001,6 +1082,12 @@ const BOSSES = {
     { id: 's3', lv: 10, name: 'てこグリフォン',     hp: 5, gold: 100 },
     { id: 's4', lv: 15, name: 'かがくキマイラ',     hp: 6, gold: 150 },
     { id: 's5', lv: 25, name: 'ばんしょうのまおう', hp: 8, gold: 400 },
+    { id: 's6', lv: 35, name: 'げんしドラゴン',     hp:  9, gold:  500 },
+    { id: 's7', lv: 45, name: 'うちゅうナイト',     hp: 10, gold:  700 },
+    { id: 's8', lv: 60, name: 'しんかキマイラ',     hp: 11, gold: 1000 },
+    { id: 's9', lv: 75, name: 'ぎんがのりゅう',     hp: 12, gold: 1400 },
+    { id: 's10', lv: 90, name: 'じくうのまじん',    hp: 13, gold: 2000 },
+    { id: 's11', lv:100, name: 'かがくのしんおう',  hp: 14, gold: 3000 },
   ],
   social: [
     { id: 'h1', lv:  3, name: 'かまくらゴースト',   hp: 3, gold:  30 },
@@ -1008,6 +1095,12 @@ const BOSSES = {
     { id: 'h3', lv: 10, name: 'えどのあやかし',     hp: 5, gold: 100 },
     { id: 'h4', lv: 15, name: 'めいじのりゅう',     hp: 6, gold: 150 },
     { id: 'h5', lv: 25, name: 'しでんのまおう',     hp: 8, gold: 400 },
+    { id: 'h6', lv: 35, name: 'ていこくゴースト',   hp:  9, gold:  500 },
+    { id: 'h7', lv: 45, name: 'たいかいスピリット', hp: 10, gold:  700 },
+    { id: 'h8', lv: 60, name: 'ぶんめいのあやかし', hp: 11, gold: 1000 },
+    { id: 'h9', lv: 75, name: 'せかいしのりゅう',   hp: 12, gold: 1400 },
+    { id: 'h10', lv: 90, name: 'れきしのまじん',    hp: 13, gold: 2000 },
+    { id: 'h11', lv:100, name: 'れきしのしんおう',  hp: 14, gold: 3000 },
   ],
   review: [
     { id: 'r1', lv:  3, name: 'ケアレスドラゴン',     hp: 3, gold:  90 },
@@ -1015,8 +1108,22 @@ const BOSSES = {
     { id: 'r3', lv: 10, name: 'ミスのキマイラ',       hp: 5, gold: 300 },
     { id: 'r4', lv: 15, name: '思いこみの魔王',       hp: 6, gold: 450 },
     { id: 'r5', lv: 25, name: 'むずかしい問題の覇王', hp: 8, gold: 1200 },
+    { id: 'r6', lv: 35, name: 'つみのこしドラゴン', hp:  9, gold: 1300 },
+    { id: 'r7', lv: 45, name: 'おもいこみデビル',   hp: 10, gold: 1800 },
+    { id: 'r8', lv: 60, name: 'ケアレスのまじん',   hp: 11, gold: 2600 },
+    { id: 'r9', lv: 75, name: 'にがてのりゅう',     hp: 12, gold: 3600 },
+    { id: 'r10', lv: 90, name: 'ふくしゅうのまおう', hp: 13, gold: 5000 },
+    { id: 'r11', lv:100, name: 'こくふくのしんおう', hp: 14, gold: 8000 },
   ],
 };
+
+// 節目の称号 — 各教科が指定レベルに到達するともらえる
+const MILESTONES = [
+  { lv:  30, gold:   500, emoji: '🎖', rank: '達人' },
+  { lv:  50, gold:  1500, emoji: '🏅', rank: '賢者' },
+  { lv:  70, gold:  3000, emoji: '👑', rank: '覇者' },
+  { lv: 100, gold: 10000, emoji: '🌟', rank: '神'   },
+];
 
 // クイズ問題集 — 5年生 中学受験(開成志望)レベル想定
 // 各問題: q=問題文, choices=[4択], a=正解index(0-3), e=解説(任意)
@@ -1058,6 +1165,42 @@ const QUIZZES = {
     { q: '10%の食塩水100gと、20%の食塩水100gをまぜると、何%の食塩水になる？',
       choices: ['12%', '15%', '18%', '20%'], a: 1,
       e: '(10+20)÷200 = 15%' },
+    { q: 'れんぞくする3つの整数の和が72。まん中の数はいくつ？',
+      choices: ['22', '23', '24', '25'], a: 2,
+      e: '72÷3 = 24' },
+    { q: '1, 4, 9, 16, 25 …とつづくとき、8番目の数は？',
+      choices: ['49', '56', '64', '81'], a: 2,
+      e: '8×8 = 64' },
+    { q: '兄と弟の年れいの比は5:3で、合わせて32才。兄は何才？',
+      choices: ['18才', '20才', '22才', '24才'], a: 1,
+      e: '32×5/(5+3) = 20' },
+    { q: '半径10cmの円のまわりの長さは？(円周率3.14)',
+      choices: ['31.4 cm', '62.8 cm', '314 cm', '628 cm'], a: 1,
+      e: '直径20×3.14 = 62.8' },
+    { q: '12と18の最小公倍数は？',
+      choices: ['6', '36', '72', '216'], a: 1,
+      e: '12=2²×3, 18=2×3² → 2²×3²=36' },
+    { q: '時速60kmで2時間30分走ると何km進む？',
+      choices: ['120km', '150km', '180km', '90km'], a: 1,
+      e: '60×2.5 = 150' },
+    { q: '原価500円の品物に2わりの利益をつけると、定価はいくら？',
+      choices: ['550円', '600円', '650円', '700円'], a: 1,
+      e: '500×1.2 = 600' },
+    { q: '1から50までの整数のうち、7の倍数は何個ある？',
+      choices: ['5こ', '6こ', '7こ', '8こ'], a: 2,
+      e: '7,14,21,28,35,42,49 の7こ' },
+    { q: '底辺8cm、高さ5cmの三角形の面積は？',
+      choices: ['13 cm²', '20 cm²', '26 cm²', '40 cm²'], a: 1,
+      e: '8×5÷2 = 20' },
+    { q: 'ある数の0.25倍が15。ある数はいくつ？',
+      choices: ['45', '60', '75', '3.75'], a: 1,
+      e: '15÷0.25 = 60' },
+    { q: '分速80mで歩く人が1.2km進むのに何分かかる？',
+      choices: ['10分', '12分', '15分', '20分'], a: 2,
+      e: '1200÷80 = 15' },
+    { q: '4でわると3あまり、6でわると5あまる2けたの整数のうち、いちばん小さい数は？',
+      choices: ['11', '17', '23', '35'], a: 0,
+      e: '11÷4=2あまり3、11÷6=1あまり5' },
   ],
   japanese: [
     { q: '「光陰矢のごとし」の意味として正しいものはどれ？',
@@ -1086,6 +1229,30 @@ const QUIZZES = {
       e: 'いずれも「花が」が主語、述語と意味が通る。' },
     { q: '「雨後の筍(うごのたけのこ)」の意味として近いものは？',
       choices: ['まれにしか起きない', 'つぎつぎと出てくる', 'うつくしい光景', 'むだなこと'], a: 1 },
+    { q: '「五十歩百歩」の意味にもっとも近いのは？',
+      choices: ['逃げるが勝ち', '大きな差はない', '数が多いほどよい', '一歩ずつ進む'], a: 1 },
+    { q: '『源氏物語』の作者は？',
+      choices: ['清少納言', '紫式部', '和泉式部', '兼好法師'], a: 1 },
+    { q: '「異口同音」の正しい読みは？',
+      choices: ['いくちどうおん', 'いこうどうおん', 'いくどうおん', 'ことなるくち'], a: 2,
+      e: '多くの人が口をそろえて同じことを言うこと' },
+    { q: '「臨機応変」の意味は？',
+      choices: ['計画どおりに進める', 'その場に応じてうまく対応する', 'いつも慎重に考える', '力ずくでやりとげる'], a: 1 },
+    { q: '次のうち「尊敬語」はどれ？「先生が___」',
+      choices: ['申す', 'おっしゃる', 'いただく', 'うかがう'], a: 1,
+      e: '申す・いただく・うかがう は けんじょう語' },
+    { q: '「うのみにする」の意味は？',
+      choices: ['よく考えずに受け入れる', 'うたがってかかる', '大切に保管する', '急いで食べる'], a: 0 },
+    { q: '『おくのほそ道』を書いた俳人は？',
+      choices: ['小林一茶', '与謝蕪村', '松尾芭蕉', '正岡子規'], a: 2 },
+    { q: '「拡大」の対義語は？',
+      choices: ['増大', '縮小', '拡張', '膨張'], a: 1 },
+    { q: '「漁夫の利」の意味は？',
+      choices: ['努力が必ずむくわれる', '二者があらそう間に第三者が得をする', '海の幸をたくさん得る', '協力して利益を分ける'], a: 1 },
+    { q: '「さじを投げる」の意味は？',
+      choices: ['食事を終える', 'あきらめる', 'おこって物を投げる', '手伝いをやめる'], a: 1 },
+    { q: '「枯れ木も山のにぎわい」の意味は？',
+      choices: ['自然はうつくしい', 'つまらないものでも、ないよりはまし', '人が多くてにぎやか', '古いものには価値がある'], a: 1 },
   ],
   science: [
     { q: '植物の葉が日光をうけてデンプンをつくるはたらきを何という？',
@@ -1114,6 +1281,29 @@ const QUIZZES = {
       choices: ['オリオン座', 'こぐま座', 'おおぐま座', 'カシオペア座'], a: 1 },
     { q: '4年生で習う「とじこめた空気」の性質として正しいのは？',
       choices: ['おしちぢめられない', 'おすともとにもどらない', 'おしちぢめると体積が小さくなる', '温めると重くなる'], a: 2 },
+    { q: 'でんぷんがあるかどうかを調べる薬品は？',
+      choices: ['石灰水', 'ヨウ素液', 'アンモニア水', '食塩水'], a: 1,
+      e: 'でんぷんにつけると青むらさき色になる' },
+    { q: '二酸化炭素を通すと白くにごる液体は？',
+      choices: ['食塩水', '石灰水', 'さとう水', 'うすい塩酸'], a: 1 },
+    { q: 'ふりこが1往復する時間を決めるのは、おもに何？',
+      choices: ['おもりの重さ', 'ふれはば', 'ふりこの長さ', '糸の太さ'], a: 2 },
+    { q: 'こん虫のからだは3つに分かれる。頭・むね と、あと一つは？',
+      choices: ['あし', 'はら', 'はね', 'しっぽ'], a: 1 },
+    { q: '酸性の水よう液に青色リトマス紙をつけると何色になる？',
+      choices: ['赤色になる', '青色のまま', '緑色になる', '黄色になる'], a: 0 },
+    { q: '光が水やガラスに ななめに入るときに曲がる現象を何という？',
+      choices: ['反射', '屈折', '分解', '吸収'], a: 1 },
+    { q: '電磁石を強くする方法として正しくないものは？',
+      choices: ['コイルの巻き数を増やす', '電流を大きくする', '鉄しんをぬく', 'かん電池を直列にふやす'], a: 2 },
+    { q: '月の表面にある、まるい形のくぼみを何という？',
+      choices: ['カルデラ', 'クレーター', 'マグマ', 'プレート'], a: 1 },
+    { q: '1cm³あたりの重さ(密度)がいちばん大きいのはどれ？',
+      choices: ['水', '木', '鉄', '発ぽうスチロール'], a: 2 },
+    { q: 'ものが燃えつづけるのに必要な気体は？',
+      choices: ['ちっ素', '酸素', '二酸化炭素', '水素'], a: 1 },
+    { q: '日本の夏に、南東からふく あたたかくしめった季節風のもとになる気団は？',
+      choices: ['シベリア気団', '小笠原気団', 'オホーツク海気団', '揚子江気団'], a: 1 },
   ],
   social: [
     { q: '江戸幕府を開いた人物は？',
@@ -1141,6 +1331,29 @@ const QUIZZES = {
       choices: ['イギリス', 'スペイン', 'オランダ', 'ポルトガル'], a: 2 },
     { q: '世界遺産に登録されている、奈良の大仏がある寺は？',
       choices: ['法隆寺', '東大寺', '清水寺', '金閣寺'], a: 1 },
+    { q: '日本の標準時の基準となっている都市は？',
+      choices: ['東京', '京都', '兵庫県明石市', '福岡'], a: 2 },
+    { q: '聖徳太子が定めたとされる、役人の心がまえを示したものは？',
+      choices: ['大宝律令', '十七条の憲法', '武家諸法度', '御成敗式目'], a: 1 },
+    { q: '参勤交代を制度として定めた江戸幕府の将軍は？',
+      choices: ['徳川家康', '徳川秀忠', '徳川家光', '徳川吉宗'], a: 2 },
+    { q: '国会は「国権の最高機関」であり、国の唯一の何機関？',
+      choices: ['行政機関', '立法機関', '司法機関', '諮問機関'], a: 1 },
+    { q: '太平洋戦争が終わった年は？',
+      choices: ['1941年', '1945年', '1951年', '1956年'], a: 1 },
+    { q: '自動車工業がさかんな、愛知県を中心とする工業地帯は？',
+      choices: ['京浜工業地帯', '中京工業地帯', '阪神工業地帯', '北九州工業地帯'], a: 1 },
+    { q: '国民の三大義務にふくまれないものは？',
+      choices: ['勤労の義務', '納税の義務', '子どもに教育を受けさせる義務', '投票の義務'], a: 3 },
+    { q: '北海道のもともとの先住民族は？',
+      choices: ['アイヌ民族', '琉球民族', '隼人', '熊襲'], a: 0 },
+    { q: '関東地方を流れ、流域面積が日本一の川は？',
+      choices: ['信濃川', '利根川', '荒川', '多摩川'], a: 1,
+      e: '長さ日本一は信濃川。流域面積日本一は利根川' },
+    { q: 'ビニールハウスを使い、なすやピーマンを早づくりする栽培方法は？',
+      choices: ['抑制栽培', '促成栽培', '二毛作', '焼畑農業'], a: 1 },
+    { q: '三権分立で、裁判を行う役割をもつのはどこ？',
+      choices: ['国会', '内閣', '裁判所', '省庁'], a: 2 },
   ],
 };
 
@@ -1156,11 +1369,11 @@ function defaultState() {
     hero:    { name: 'ゆうしゃ' },
     gold:    0,
     subjects: {
-      math:     { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
-      japanese: { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
-      science:  { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
-      social:   { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
-      review:   { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0 },
+      math:     { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0, milestones: [] },
+      japanese: { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0, milestones: [] },
+      science:  { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0, milestones: [] },
+      social:   { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0, milestones: [] },
+      review:   { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0, milestones: [] },
     },
     history: { lastStudyAt: 0, lastSessionSec: 0 },
     daily:    {},  // 'YYYY-MM-DD': { math, japanese, science, social, review }
@@ -1269,6 +1482,45 @@ function nextBoss(subj) {
   return null;
 }
 
+// ---- 節目の称号 ----
+function milestoneTitle(subj, m) {
+  return `${SUBJECT_INFO[subj].name}の${m.rank}`;
+}
+function earnedTitles() {
+  const out = [];
+  for (const subj of SUBJECTS) {
+    const ms = state.subjects[subj].milestones || [];
+    for (const m of MILESTONES) {
+      if (ms.includes(m.lv)) out.push({ subj, m });
+    }
+  }
+  return out;
+}
+function grantMilestone(subj, m, celebrate) {
+  const s = state.subjects[subj];
+  if (!s.milestones) s.milestones = [];
+  if (s.milestones.includes(m.lv)) return;
+  s.milestones.push(m.lv);
+  if (celebrate) {
+    state.gold += m.gold;
+    showMilestone(subj, m);
+  }
+}
+function checkMilestones(subj, before, after) {
+  for (const m of MILESTONES) {
+    if (before < m.lv && after >= m.lv) grantMilestone(subj, m, true);
+  }
+}
+// 読み込み時、すでに到達ずみの称号を静かに付与（後出しゴールド無し）
+function backfillMilestones() {
+  for (const subj of SUBJECTS) {
+    const lv = levelOf(subj);
+    for (const m of MILESTONES) {
+      if (lv >= m.lv) grantMilestone(subj, m, false);
+    }
+  }
+}
+
 // ============================================================
 // タイマー
 // ============================================================
@@ -1317,6 +1569,8 @@ function awardMinutes(subj, mins) {
     const w = currentWeapon(subj);
     showToast(`${SUBJECT_INFO[subj].name}の レベルが ${after} に あがった！\n${bonus}G ボーナス！\n武器: ${w.name}`);
   }
+  // 節目の称号チェック
+  checkMilestones(subj, before, after);
 
   // 週・月のしきい値チェック
   checkThresholds();
@@ -2850,6 +3104,25 @@ function showToast(msg, opts = {}) {
   setTimeout(() => el.remove(), opts.trophy ? 4500 : 2800);
 }
 
+function showMilestone(subj, m) {
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal milestone-modal">
+        <div class="milestone-emoji">${m.emoji}</div>
+        <div class="milestone-head">しょうごう かくとく！</div>
+        <div class="milestone-title">${escapeHtml(milestoneTitle(subj, m))}</div>
+        <div class="milestone-sub">${SUBJECT_INFO[subj].name} が Lv${m.lv} に とうたつ！</div>
+        <div class="milestone-gold">＋${m.gold}G ボーナス！</div>
+        <div class="confirm-btns">
+          <button class="btn-yellow" id="ms-ok">やったー！</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('ms-ok').onclick = () => { closeModal(); render(); };
+}
+
 // ============================================================
 // メニュー操作
 // ============================================================
@@ -2887,6 +3160,8 @@ function showCollection() {
 
         ${renderOwnedShopItems()}
 
+        ${renderTitlesSection()}
+
         ${renderEarnedSurpriseTrophies()}
 
         <div class="confirm-btns">
@@ -2896,6 +3171,31 @@ function showCollection() {
     </div>
   `;
   document.getElementById('col-close').onclick = closeModal;
+}
+
+function renderTitlesSection() {
+  const titles = earnedTitles();
+  if (titles.length === 0) {
+    return `
+      <div class="collection-section">
+        <div class="section-title">🎖 しょうごう</div>
+        <div class="small">まだ ない。各教科 Lv30で「達人」、Lv50で「賢者」… がもらえるよ！</div>
+      </div>
+    `;
+  }
+  const items = titles.map(({ subj, m }) => `
+    <div class="item-row">
+      <span class="item-icon">${m.emoji}</span>
+      <span class="item-name">${escapeHtml(milestoneTitle(subj, m))}</span>
+      <span class="item-info">Lv${m.lv} とうたつ</span>
+    </div>
+  `).join('');
+  return `
+    <div class="collection-section">
+      <div class="section-title">🎖 しょうごう (${titles.length}こ)</div>
+      ${items}
+    </div>
+  `;
 }
 
 function renderOwnedShopItems() {
@@ -3081,6 +3381,10 @@ document.getElementById('btn-start-game').addEventListener('click', startGame);
 document.getElementById('title-bgm-toggle').addEventListener('click', () => {
   setBgmEnabled(!state.bgm.enabled);
 });
+
+// すでに到達ずみの称号を静かに付与してから起動
+backfillMilestones();
+saveState();
 
 // タイトル画面で起動
 showTitleScreen();
