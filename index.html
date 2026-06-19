@@ -1365,7 +1365,7 @@ const STORAGE_KEY = 'study-rpg-v1';
 
 function defaultState() {
   return {
-    version: 1,
+    version: 2,
     hero:    { name: 'ゆうしゃ' },
     gold:    0,
     subjects: {
@@ -1408,9 +1408,14 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
-    // 軽いマイグレーション
+    // 軽いマイグレーション（新キー追加）＋ version 管理の本格マイグレーション
     const def = defaultState();
-    return mergeDefault(def, parsed);
+    const merged = migrate(mergeDefault(def, parsed));
+    // version が上がったら即保存（リロードでマイグレーションが二重実行されるのを防ぐ）
+    if ((parsed.version || 1) < merged.version) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch (e) {}
+    }
+    return merged;
   } catch (e) {
     console.error('セーブデータの読み込みに失敗', e);
     return defaultState();
@@ -1429,6 +1434,18 @@ function mergeDefault(def, src) {
     if (!(k in out)) out[k] = src[k];
   }
   return out;
+}
+
+// version で管理する本格マイグレーション
+function migrate(s) {
+  // v2: やり直し(review)のEXP倍率を 2→1.5 に変更。
+  // 現在のレベルを保つため、旧2倍ぶんの差分(0.5×これまでの勉強分)を bonusExp に退避してから倍率を下げる。
+  if (!s.version || s.version < 2) {
+    const r = s.subjects && s.subjects.review;
+    if (r) r.bonusExp = (r.bonusExp || 0) + Math.round((r.totalMin || 0) * 0.5);
+    s.version = 2;
+  }
+  return s;
 }
 
 let saveWarned = false;
@@ -1450,7 +1467,7 @@ function saveState() {
 // ============================================================
 
 function expRate(subj) {
-  return subj === 'review' ? 2 : 1;
+  return subj === 'review' ? 1.5 : 1;
 }
 function totalExpOf(subj) {
   const s = state.subjects[subj];
@@ -1545,8 +1562,8 @@ function awardMinutes(subj, mins) {
     const bonus = mins * expRate(subj) * (expMult - 1);
     state.subjects[subj].bonusExp = (state.subjects[subj].bonusExp || 0) + bonus;
   }
-  // やり直しは ゴールドも 2倍 + ブースト分
-  const goldMult = (subj === 'review') ? 2 : 1;
+  // やり直しは ゴールドも 1.5倍 + ブースト分
+  const goldMult = (subj === 'review') ? 1.5 : 1;
   state.gold += Math.round(mins * goldMult * boostGoldMult);
 
   // 日次記録
