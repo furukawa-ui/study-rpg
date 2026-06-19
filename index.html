@@ -1611,16 +1611,27 @@ const SHOP_ITEMS = {
     { id: 'revive',      name: 'ふっかつ薬',       emoji: '❤️‍🩹', price:   200, desc: 'ボスに負けても HP1で 自動ふっかつ',     stackable: true },
     { id: 'lightning',   name: 'いかずちの巻物',   emoji: '⚡',   price:   400, desc: 'ボスに 即2ダメージ あたえる',           stackable: true },
     { id: 'power-pot',   name: 'ちからの薬',       emoji: '💥',   price:   160, desc: '次のボス戦で HPが 3→5 になる',           stackable: true },
+    { id: 'super-hint',  name: 'スーパーヒント券', emoji: '🔆',   price:   250, desc: 'ボス戦で 4択→2択 にできる(1問だけ)',   stackable: true },
+    { id: 'mega-lightning', name: 'メガいかずち',  emoji: '🌩',   price:   700, desc: 'ボスに 即3ダメージ あたえる',           stackable: true },
+    { id: 'big-power-pot', name: 'だいちからの薬', emoji: '🧪',   price:   350, desc: '次のボス戦で HPが 3→7 になる',           stackable: true },
   ],
   boost: [
+    { id: 'mini-charm',  name: 'やる気の かけら',   emoji: '🔥', price:   250, desc: '15分間 EXP 1.3倍',                    stackable: true, durationMin: 15, expMult: 1.3, goldMult: 1 },
     { id: 'exp-charm',   name: 'けいけんちの お守り', emoji: '✨', price:   600, desc: '30分間 EXP 1.5倍',                    stackable: true, durationMin: 30, expMult: 1.5, goldMult: 1 },
     { id: 'gold-charm',  name: 'ゴールドの お守り',   emoji: '💰', price:   400, desc: '30分間 Gold 1.5倍',                   stackable: true, durationMin: 30, expMult: 1,   goldMult: 1.5 },
+    { id: 'focus-charm', name: 'しゅうちゅうの お守り', emoji: '🧠', price: 1200, desc: '90分間 EXP 1.5倍',                  stackable: true, durationMin: 90, expMult: 1.5, goldMult: 1 },
     { id: 'god-breath',  name: '神のいぶき',         emoji: '🌟', price:  2000, desc: '60分間 EXP・Gold 2倍',                 stackable: true, durationMin: 60, expMult: 2,   goldMult: 2 },
+    { id: 'legend-breath', name: 'でんせつの いぶき', emoji: '🐲', price: 6000, desc: '120分間 EXP・Gold 2.5倍',            stackable: true, durationMin: 120, expMult: 2.5, goldMult: 2.5 },
   ],
   collection: [
     { id: 'fame-shield', name: '名声の盾',          emoji: '🏆',  price:  1000, desc: 'アイテムずかんに かざれる',           stackable: false },
+    { id: 'silver-medal',name: 'ぎんの メダル',     emoji: '🥈',  price:  2000, desc: 'がんばりの あかし',                   stackable: false },
+    { id: 'magic-orb',   name: 'まほうの オーブ',   emoji: '🔮',  price:  4000, desc: 'ふしぎな ひかりを はなつ',           stackable: false },
     { id: 'king-crown',  name: '王者の冠',          emoji: '👑',  price:  6000, desc: 'タイトルのキャラ名よこに 表示',       stackable: false },
+    { id: 'feather',     name: 'ふしぎな はね',     emoji: '🪶',  price:  8000, desc: 'でんせつの とりの はね',             stackable: false },
     { id: 'dragon-scale',name: '古代の竜の鱗',      emoji: '🐉',  price: 10000, desc: 'レア装飾コレクター用',                 stackable: false },
+    { id: 'hero-statue', name: 'ゆうしゃの どうぞう', emoji: '🗿', price: 15000, desc: 'でんせつに なった しょうこ',         stackable: false },
+    { id: 'rainbow-box', name: 'にじいろの たからばこ', emoji: '🌈', price: 25000, desc: 'さいこうきゅうの たからもの',      stackable: false },
   ],
 };
 
@@ -2832,8 +2843,13 @@ function startBattle(subj, boss) {
   battle.playerHp = 3;
   battle.playerHpMax = 3;
   battle.hintApplied = false;
-  // ちからの薬: HP3→5 (持ってたら自動消費)
-  if (getInventoryCount('power-pot') > 0) {
+  // ちからの薬: HP3→5 / だいちからの薬: HP3→7 (持ってたら自動消費。強い方を優先)
+  if (getInventoryCount('big-power-pot') > 0) {
+    state.inventory['big-power-pot'] -= 1;
+    battle.playerHp = 7;
+    battle.playerHpMax = 7;
+    showToast('🧪 だいちからの薬を 使った！\nHPが 7に なった');
+  } else if (getInventoryCount('power-pot') > 0) {
     state.inventory['power-pot'] -= 1;
     battle.playerHp = 5;
     battle.playerHpMax = 5;
@@ -2892,11 +2908,13 @@ function renderBattle() {
   const heartsBoss = renderHearts(battle.bossHp, battle.boss.hp);
   const heartsP    = renderHearts(battle.playerHp, battle.playerHpMax || 3);
 
-  // ヒント券で1選択肢を非表示 (this.question only)
-  const hiddenWrong = (battle.hintApplied && q.hiddenWrong != null) ? q.hiddenWrong : -1;
+  // ヒント券/スーパーヒント券で まちがいの選択肢を非表示 (this.question only)
+  const hidden = (battle.hintApplied && Array.isArray(q.hiddenWrongs)) ? q.hiddenWrongs : [];
 
   const hintCount  = getInventoryCount('hint-ticket');
+  const superHintCount = getInventoryCount('super-hint');
   const lightCount = getInventoryCount('lightning');
+  const megaCount  = getInventoryCount('mega-lightning');
   const reviveCount= getInventoryCount('revive');
 
   root.innerHTML = `
@@ -2916,11 +2934,13 @@ function renderBattle() {
         <div class="battle-message" id="battle-msg">${battle.log}</div>
         <div class="quiz-question">Q. ${q.q}</div>
         <div class="quiz-choices" id="choices">
-          ${q.choices.map((c, i) => i === hiddenWrong ? '' : `<button data-i="${i}">${i+1}. ${c}</button>`).join('')}
+          ${q.choices.map((c, i) => hidden.includes(i) ? '' : `<button data-i="${i}">${i+1}. ${c}</button>`).join('')}
         </div>
         <div class="row mt8" style="flex-wrap:wrap; gap:6px;">
           ${hintCount  > 0 && !battle.hintApplied ? `<button class="btn-yellow battle-item-btn" id="use-hint">🎯 ヒント券 (${hintCount})</button>` : ''}
+          ${superHintCount > 0 && !battle.hintApplied ? `<button class="btn-yellow battle-item-btn" id="use-super-hint">🔆 スーパーヒント (${superHintCount})</button>` : ''}
           ${lightCount > 0 ? `<button class="btn-yellow battle-item-btn" id="use-lightning">⚡ いかずち (${lightCount})</button>` : ''}
+          ${megaCount > 0 ? `<button class="btn-yellow battle-item-btn" id="use-mega">🌩 メガいかずち (${megaCount})</button>` : ''}
           ${reviveCount > 0 ? `<span class="small">❤️‍🩹 ふっかつ薬 ${reviveCount}個(自動)</span>` : ''}
         </div>
         <div class="row mt12">
@@ -2933,7 +2953,9 @@ function renderBattle() {
     btn.addEventListener('click', () => answerChoice(parseInt(btn.dataset.i, 10)));
   });
   document.getElementById('use-hint')?.addEventListener('click', useHintTicket);
+  document.getElementById('use-super-hint')?.addEventListener('click', useSuperHint);
   document.getElementById('use-lightning')?.addEventListener('click', useLightningScroll);
+  document.getElementById('use-mega')?.addEventListener('click', useMegaLightning);
   document.getElementById('battle-flee').addEventListener('click', () => {
     showConfirm('にげますか？', '今のボス戦は キャンセルされるよ', () => {
       battle.active = false;
@@ -2951,11 +2973,41 @@ function useHintTicket() {
   const q = battle.currentQ;
   // 正解じゃない選択肢から1つを非表示
   const wrongIndices = q.choices.map((_, i) => i).filter(i => i !== q.a);
-  q.hiddenWrong = wrongIndices[Math.floor(Math.random() * wrongIndices.length)];
+  q.hiddenWrongs = [wrongIndices[Math.floor(Math.random() * wrongIndices.length)]];
   battle.hintApplied = true;
   state.inventory['hint-ticket'] -= 1;
   saveState();
   showToast('🎯 ヒント券を つかった！');
+  renderBattle();
+}
+
+function useSuperHint() {
+  if (!battle.active || !battle.currentQ) return;
+  if (getInventoryCount('super-hint') <= 0) return;
+  if (battle.hintApplied) return;
+  const q = battle.currentQ;
+  // 正解じゃない選択肢から2つを非表示 (4択→2択)
+  const wrongIndices = shuffle(q.choices.map((_, i) => i).filter(i => i !== q.a));
+  q.hiddenWrongs = wrongIndices.slice(0, 2);
+  battle.hintApplied = true;
+  state.inventory['super-hint'] -= 1;
+  saveState();
+  showToast('🔆 スーパーヒント券を つかった！');
+  renderBattle();
+}
+
+function useMegaLightning() {
+  if (!battle.active) return;
+  if (getInventoryCount('mega-lightning') <= 0) return;
+  state.inventory['mega-lightning'] -= 1;
+  battle.bossHp -= 3;
+  battle.log = `🌩 メガいかずちが ${battle.boss.name}に 3ダメージ！`;
+  saveState();
+  if (battle.bossHp <= 0) {
+    setTimeout(() => endBattle(true), 700);
+    rerenderBattleStatsOnly(`${battle.boss.name}を たおした！`);
+    return;
+  }
   renderBattle();
 }
 
