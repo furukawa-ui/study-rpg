@@ -2153,6 +2153,8 @@ const T = {
   lastTickAt: 0,
 };
 
+const SESSION_CAP_MS = 40 * 60 * 1000; // 1セッションは最大40分で自動ストップ
+
 function tStart(subj) {
   if (T.running || T.paused) return;
   // 過去セッションの端数を取り込み
@@ -2165,7 +2167,6 @@ function tStart(subj) {
   T.sessionMs = carrySec * 1000; // 表示は「今回の勉強時間」: 端数も含めるとうれしい
   T.segStartedAt = Date.now();
   T.lastTickAt = Date.now();
-  T.lastConfirmAt = Date.now();
   T.running = true;
   T.paused = false;
   T.intervalId = setInterval(tTick, 500);
@@ -2182,7 +2183,6 @@ function tPause() {
   if (T.intervalId) clearInterval(T.intervalId);
   T.intervalId = null;
   pauseBgm();
-  clearStudyConfirm();
   render();
 }
 
@@ -2190,7 +2190,6 @@ function tResume() {
   if (!T.paused) return;
   T.segStartedAt = Date.now();
   T.lastTickAt = Date.now();
-  T.lastConfirmAt = Date.now();
   T.running = true;
   T.paused = false;
   T.intervalId = setInterval(tTick, 500);
@@ -2213,10 +2212,9 @@ function tStop() {
   if (T.intervalId) clearInterval(T.intervalId);
   T.running = false; T.paused = false; T.subject = null;
   T.segStartedAt = null; T.bankedMs = 0; T.sessionMs = 0;
-  T.intervalId = null; T.lastTickAt = 0; T.lastConfirmAt = null;
+  T.intervalId = null; T.lastTickAt = 0;
   stopBattleLoop();
   stopBgm();
-  clearStudyConfirm();
   render();
 }
 
@@ -2224,7 +2222,10 @@ function tStop() {
 function tCommit() {
   if (!T.running || !T.subject) return;
   const now = Date.now();
-  const segMs = Math.max(0, now - T.segStartedAt);
+  let segMs = Math.max(0, now - T.segStartedAt);
+  // 1セッションは最大40分まで。超過分は数えない（裏に回って時間が飛んでも上限を守る）
+  const room = Math.max(0, SESSION_CAP_MS - T.sessionMs);
+  if (segMs > room) segMs = room;
   // sessionMs 更新（端数も含めた累積）
   T.sessionMs += segMs;
   // 経験値換算
@@ -2242,85 +2243,28 @@ function tTick() {
   if (!T.running) return;
   T.lastTickAt = Date.now();
   tCommit();
+  if (maybeAutoStop()) return;
   render(false);
-  // ストップ押し忘れ確認 (40分ごと)
-  maybeShowStudyConfirm();
 }
 
 // ============================================================
-// ストップ押し忘れ確認
+// 40分で自動ストップ
 // ============================================================
+// 1セッションが40分に達したら自動ストップ。判定は経過時刻ベース(sessionMs)なので、
+// iPadで画面ロック→裏に回って setInterval が止まっても、戻った瞬間のチェックで確実に止まる。
 
-const CONFIRM_INTERVAL_MS = 40 * 60 * 1000; // 40分ごとに確認
-const AUTO_STOP_DELAY_MS  =  5 * 60 * 1000; // 5分反応なしで自動ストップ
-let confirmShown  = false;
-let autoStopTimer = null;
-
-function maybeShowStudyConfirm() {
-  // DOM 上に既に表示中なら何もしない (state mismatch 防止)
-  if (document.getElementById('study-yes')) { confirmShown = true; return; }
-  if (confirmShown) return;
-  if (!T.lastConfirmAt) return;
-  if (Date.now() - T.lastConfirmAt < CONFIRM_INTERVAL_MS) return;
-  showStudyConfirm();
-}
-
-function showStudyConfirm() {
-  if (confirmShown) return;
-  confirmShown = true;
-
-  const root = document.getElementById('modal-root');
-  root.innerHTML = `
-    <div class="modal-bg">
-      <div class="modal" style="text-align:center; max-width:440px;">
-        <div class="panel-title">⏰ かくにん</div>
-        <div style="font-size:18px; margin:18px 8px; line-height:1.7; color: var(--dq-yellow);">
-          ⏱ 40分 たったよ！\nまだ 勉強中？
-        </div>
-        <div class="small" style="margin: 8px 0;">
-          5分 へんじが ないと じどうで ストップするよ
-        </div>
-        <div class="confirm-btns">
-          <button id="study-yes" class="btn-green" style="flex:1;">はい！つづける</button>
-          <button id="study-no"  class="btn-red"   style="flex:1;">もうおしまい</button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const dismiss = () => {
-    confirmShown = false;
-    if (autoStopTimer) clearTimeout(autoStopTimer);
-    autoStopTimer = null;
-    closeModal();
-  };
-
-  document.getElementById('study-yes').onclick = () => {
-    T.lastConfirmAt = Date.now();
-    dismiss();
-    showToast('OK！がんばってね');
-  };
-  document.getElementById('study-no').onclick = () => {
-    dismiss();
-    tStop();
-  };
-
-  autoStopTimer = setTimeout(() => {
-    if (confirmShown) {
-      dismiss();
-      tStop();
-      showToast('お返事がなかったので\nじどうで ストップしたよ');
-    }
-  }, AUTO_STOP_DELAY_MS);
-}
-
-function clearStudyConfirm() {
-  if (confirmShown) {
-    confirmShown = false;
-    closeModal();
+function maybeAutoStop() {
+  if (!T.running) return false;
+  if (T.sessionMs >= SESSION_CAP_MS) {
+    autoStopSession();
+    return true;
   }
-  if (autoStopTimer) clearTimeout(autoStopTimer);
-  autoStopTimer = null;
+  return false;
+}
+
+function autoStopSession() {
+  tStop();
+  showToast('⏰ 40分 たったよ！\nじどうで ストップしたよ。\nつづける ときは また スタートしてね！');
 }
 
 // ============================================================
@@ -3401,15 +3345,15 @@ window.addEventListener('pagehide', () => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && T.running) {
     tCommit();
+    if (maybeAutoStop()) return;
     render(false);
-    maybeShowStudyConfirm();
   }
 });
 window.addEventListener('focus', () => {
   if (T.running) {
     tCommit();
+    if (maybeAutoStop()) return;
     render(false);
-    maybeShowStudyConfirm();
   }
 });
 // iPad の BFCache 復帰時にも発動
@@ -3420,8 +3364,8 @@ window.addEventListener('pageshow', (e) => {
       T.intervalId = setInterval(tTick, 500);
     }
     tCommit();
+    if (maybeAutoStop()) return;
     render(false);
-    maybeShowStudyConfirm();
   }
 });
 
