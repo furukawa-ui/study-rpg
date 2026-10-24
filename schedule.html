@@ -58,6 +58,8 @@ button {
   box-shadow: var(--shadow);
 }
 button:active { background: var(--surface-2); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+.lock-note { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); color: var(--text-2); font-size: 13px; }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
 .btn-primary:active { background: var(--primary-dark); }
 .btn-success { background: var(--success-soft); border-color: var(--success); color: var(--success); font-weight: 700; }
@@ -177,8 +179,6 @@ button:active { background: var(--surface-2); }
 .cal .d.today { outline: 2px solid var(--primary); }
 
 /* せってい */
-.dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-.dow button.on { background: var(--info); color: #fff; border-color: var(--info); font-weight: 700; }
 .stamps { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
 .stamps span { aspect-ratio: 1; border: 2px dashed var(--border-strong); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .stamps span.on { border: 2px solid var(--star); background: #fffbeb; }
@@ -377,6 +377,10 @@ function renderPlan() {
       ? '<div class="small mt8" style="color:var(--success)">📝 計画ボーナス ゲットずみ！</div>'
       : `<div class="small mt8" style="color:var(--gold)">📝 勉強のコマを 1つ以上 入れると 計画ボーナス +${C.PLAN_BONUS}G</div>`;
   }
+  const hasLocked = day.blocks.some(b => C.isLocked(key, b));
+  const lockNote = hasLocked
+    ? '<div class="lock-note">🔒 前の日に 決めた 勉強コマは、きょうは 消したり 短くしたり できないよ。<br>できない時は「きょう」タブの「↪ あした」へ 回そう。</div>'
+    : '';
   return `
     <div class="panel">
       <div class="seg">
@@ -386,10 +390,11 @@ function renderPlan() {
       <div class="label">日の しゅるい</div>
       <div class="seg">${Object.entries(C.DAY_TYPES).map(([k, v]) =>
         `<button data-act="daytype" data-type="${k}" class="${day.type === k ? 'on' : ''}">${v.emoji} ${v.name}</button>`).join('')}</div>
-      <div class="btns"><button class="btn-primary" data-act="loadtpl">📋 「${C.DAY_TYPES[day.type].name}」の テンプレートを 読みこむ</button></div>
+      <div class="btns"><button class="btn-primary" data-act="loadtpl" ${hasLocked ? 'disabled' : ''}>📋 「${C.DAY_TYPES[day.type].name}」の テンプレートを 読みこむ</button></div>
       <div class="label">🗣 ${isTomorrow ? 'あした' : 'きょう'}の 目標・ひとこと（じぶんで せんげん！）</div>
       <input class="goal-input" data-act="goal" maxlength="40" value="${escapeHtml(day.goal || '')}" placeholder="れい：計算は ていねいに 全問正解！">
       ${bonus}
+      ${lockNote}
     </div>
     ${renderEditor(day.blocks, false)}`;
 }
@@ -406,7 +411,7 @@ function renderEditor(blocks, isTpl) {
     return `
       <div class="${cls}" style="--c:${C.color(b.task)}" data-act="edit" data-id="${b.id}">
         <div class="time">${C.hm(b.start)}〜${C.hm(b.start + b.dur)}</div>
-        <div class="name">${t.emoji} ${t.name}<span class="sub">${b.dur}分${overlap.has(b.id) ? ' ・ ⚠ 時間が かさなってる' : ''}${b.done ? ' ・ ✔ クリアずみ' : ''}</span></div>
+        <div class="name">${t.emoji} ${t.name}<span class="sub">${b.dur}分${overlap.has(b.id) ? ' ・ ⚠ 時間が かさなってる' : ''}${b.done ? ' ・ ✔ クリアずみ' : ''}${!isTpl && C.isLocked(planKey(), b) ? ' ・ 🔒' : ''}</span></div>
         <div class="small">✏</div>
       </div>`;
   }).join('') : '<div class="empty">まだ コマが ないよ。下の ボタンで 追加しよう！</div>';
@@ -464,7 +469,7 @@ function addBlock(taskId) {
     const end = blocks.reduce((m, b) => Math.max(m, b.start + b.dur), 0);
     const dur = t.def || 30;
     const start = Math.min(end || (currentType() === 'holiday' ? 480 : 960), 1440 - dur);
-    const nb = { id: C.newId(), task: taskId, start, dur, done: false, via: null, actualSec: 0 };
+    const nb = { id: C.newId(), task: taskId, start, dur, done: false, via: null, actualSec: 0, createdOn: C.today() };
     blocks.push(nb);
     ui.lastAddedId = nb.id;
   });
@@ -474,9 +479,11 @@ function openEdit(id) {
   const b = blocks.find(x => x.id === id);
   if (!b) { closeModal(); return; }
   const t = C.task(b.task);
+  const locked = !isTplMode() && C.isLocked(planKey(), b);
+  const min = C.minDur(b);
   document.getElementById('modal-root').innerHTML = `
     <div class="modal-bg"><div class="modal" style="max-width:480px;">
-      <div class="panel-title">${t.emoji} ${t.name}</div>
+      <div class="panel-title">${t.emoji} ${t.name}${locked ? '　🔒' : ''}</div>
       <div class="edit-time">${C.hm(b.start)} 〜 ${C.hm(b.start + b.dur)}</div>
       <div class="label">はじまる 時間</div>
       <div class="grid4">
@@ -484,9 +491,10 @@ function openEdit(id) {
         <button data-mv="5">5分 ▶</button><button data-mv="30">30分 ▶▶</button>
       </div>
       <div class="label">じかんの 長さ${t.subj ? '（勉強は 40分までが おすすめ）' : ''}</div>
-      <div class="grid5">${DURS.map(d => `<button data-dur="${d}" class="${b.dur === d ? 'on' : ''}">${d}分</button>`).join('')}</div>
+      <div class="grid5">${DURS.map(d => `<button data-dur="${d}" class="${b.dur === d ? 'on' : ''}" ${locked && d < min ? 'disabled' : ''}>${d}分</button>`).join('')}</div>
+      ${locked ? `<div class="lock-note">🔒 前の日に 決めた 勉強コマなので、けしたり ${min}分より 短くしたり できないよ</div>` : ''}
       <div class="confirm-btns">
-        <button class="btn-danger" id="ed-del">🗑 けす</button>
+        ${locked ? '' : '<button class="btn-danger" id="ed-del">🗑 けす</button>'}
         <button class="btn-primary" id="ed-ok" style="flex:2;">OK</button>
       </div>
     </div></div>`;
@@ -494,20 +502,35 @@ function openEdit(id) {
   document.querySelectorAll('#modal-root [data-mv]').forEach(btn => btn.onclick = () =>
     change(x => { x.start = Math.max(0, Math.min(1440 - x.dur, x.start + Number(btn.dataset.mv))); }));
   document.querySelectorAll('#modal-root [data-dur]').forEach(btn => btn.onclick = () =>
-    change(x => { x.dur = Number(btn.dataset.dur); if (x.start + x.dur > 1440) x.start = 1440 - x.dur; }));
+    change(x => {
+      const d = Number(btn.dataset.dur);
+      if (locked) {
+        // 当日最初の変更時の長さを下限として覚えておく（のばした後に元へ戻すのはOK）
+        if (x.base == null) x.base = x.dur;
+        if (d < x.base) return;
+      }
+      x.dur = d;
+      if (x.start + x.dur > 1440) x.start = 1440 - x.dur;
+    }));
   document.getElementById('ed-ok').onclick = closeModal;
-  document.getElementById('ed-del').onclick = () => {
-    closeModal();
-    editBlocks(bs => { const i = bs.findIndex(y => y.id === id); if (i >= 0) bs.splice(i, 1); });
-  };
+  if (!locked) {
+    document.getElementById('ed-del').onclick = () => {
+      closeModal();
+      editBlocks(bs => { const i = bs.findIndex(y => y.id === id); if (i >= 0) bs.splice(i, 1); });
+    };
+  }
 }
 function loadTemplate() {
   const key = planKey();
   const type = viewDay(key).type;
+  if (viewDay(key).blocks.some(b => C.isLocked(key, b))) {
+    showToast('🔒 前の日に 決めた 勉強コマが あるので\nきょうは テンプレートを 読みこめないよ');
+    return;
+  }
   const apply = () => {
     editBlocks((blocks, s) => {
       const day = C.ensureDay(s, key);
-      day.blocks = s.templates[type].map(b => ({ id: C.newId(), task: b.task, start: b.start, dur: b.dur, done: false, via: null, actualSec: 0 }));
+      day.blocks = s.templates[type].map(b => ({ id: C.newId(), task: b.task, start: b.start, dur: b.dur, done: false, via: null, actualSec: 0, createdOn: C.today() }));
     });
     showToast(`📋 「${C.DAY_TYPES[type].name}」を 読みこんだよ`);
   };
@@ -675,15 +698,10 @@ function renderSettings() {
   const streakRules = Object.entries(C.STREAK_REWARDS).map(([d, g]) => `${d}日 +${g}G`).join('、');
   return `
     <div class="panel">
-      <div class="panel-title">▼ 塾の 曜日</div>
-      <div class="dow">${[1, 2, 3, 4, 5, 6, 0].map(d =>
-        `<button data-act="jukuday" data-dow="${d}" class="${sch.jukuDays.includes(d) ? 'on' : ''}">${'日月火水木金土'[d]}</button>`).join('')}</div>
-      <div class="small mt8">えらんだ曜日は「塾の日」、土日は「休日」が じどうで えらばれるよ（祝日は 計画のときに 切りかえてね）</div>
-    </div>
-    <div class="panel">
       <div class="panel-title">▼ テンプレートを へんしゅう</div>
       <div class="seg">${Object.entries(C.DAY_TYPES).map(([k, v]) =>
         `<button data-act="tpl" data-type="${k}" class="${ui.tplType === k ? 'on' : ''}">${v.emoji} ${v.name}</button>`).join('')}</div>
+      <div class="small mt8">月〜金は「平日」、土日は「休日」が じどうで えらばれるよ（祝日は 計画のときに 切りかえてね）。塾の日は 平日の計画に「🏫 塾」の コマを 入れよう</div>
     </div>
     ${ui.tplType ? renderEditor(sch.templates[ui.tplType], true) : ''}
     <div class="panel">
@@ -757,12 +775,6 @@ document.getElementById('app').addEventListener('click', e => {
     case 'edit': openEdit(id); break;
     case 'smode': ui.statsMode = el.dataset.mode; render(); break;
     case 'snav': statsNav(Number(el.dataset.dir)); break;
-    case 'jukuday': {
-      const d = Number(el.dataset.dow);
-      mutate(s => { s.jukuDays = s.jukuDays.includes(d) ? s.jukuDays.filter(x => x !== d) : [...s.jukuDays, d]; });
-      render();
-      break;
-    }
     case 'tpl': ui.tplType = ui.tplType === el.dataset.type ? null : el.dataset.type; render(); break;
   }
 });

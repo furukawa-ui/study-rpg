@@ -1907,8 +1907,8 @@ function showEndDay() {
   const idx = (dayOfYear() + new Date().getFullYear()) % ENCOURAGEMENT_MESSAGES.length;
   const message = ENCOURAGEMENT_MESSAGES[idx];
 
-  const today = state.daily[todayKey()] || {math:0, japanese:0, science:0, social:0};
-  const totalMin = today.math + today.japanese + today.science + today.social;
+  const today = dayTotalSubj(todayKey());
+  const totalMin = today.total;
   const dateStr = `${new Date().getFullYear()}年${new Date().getMonth()+1}月${new Date().getDate()}日`;
 
   const subjRows = SUBJECTS.map(s => `

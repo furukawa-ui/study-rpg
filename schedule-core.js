@@ -40,9 +40,8 @@ const SchCore = (() => {
   const TASK_MAP = Object.fromEntries(TASKS.map(t => [t.id, t]));
 
   const DAY_TYPES = {
-    juku:    { name: '塾の日',     emoji: '🏫' },
-    free:    { name: '塾なし平日', emoji: '🏠' },
-    holiday: { name: '休日',       emoji: '🌈' },
+    weekday: { name: '平日', emoji: '🏫' },
+    holiday: { name: '休日', emoji: '🌈' },
   };
 
   const STAR_BONUS = [0, 30, 80, 200];        // ★0〜★3 の日ボーナス
@@ -64,11 +63,7 @@ const SchCore = (() => {
 
   // サンプル（最初の1回だけ入る。親子で直して使う前提）。勉強コマは40分以内＝タイマーの自動ストップと合わせる
   const SAMPLE_TEMPLATES = {
-    juku: [
-      ['keisan', 960, 15], ['kanji', 975, 15], ['juku', 1020, 180],
-      ['meal', 1200, 30], ['bath', 1230, 30], ['shakai_anki', 1260, 15],
-    ],
-    free: [
+    weekday: [
       ['keisan', 960, 15], ['kanji', 975, 15], ['rest', 990, 15],
       ['yoshu_m', 1005, 40], ['free', 1045, 65], ['meal', 1110, 30],
       ['yoshu_j', 1140, 40], ['rest', 1180, 10], ['rika_anki', 1190, 20],
@@ -101,14 +96,14 @@ const SchCore = (() => {
   function newId() { return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
   // ---- 保存 ----
+  function sampleTemplate(type) {
+    return SAMPLE_TEMPLATES[type].map(([t, start, dur]) => ({ id: newId(), task: t, start, dur }));
+  }
   function defaultSch() {
     const templates = {};
-    for (const [type, rows] of Object.entries(SAMPLE_TEMPLATES)) {
-      templates[type] = rows.map(([t, start, dur]) => ({ id: newId(), task: t, start, dur }));
-    }
+    for (const type of Object.keys(SAMPLE_TEMPLATES)) templates[type] = sampleTemplate(type);
     return {
-      version: 1,
-      jukuDays: [],          // 0=日〜6=土
+      version: 2,
       templates,
       days: {},              // 'YYYY-MM-DD': { type, goal, blocks[], paid, planBonus, settled, stars }
       streak: 0, bestStreak: 0, lastSettled: null,
@@ -123,10 +118,27 @@ const SchCore = (() => {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return defaultSch();
-      return { ...defaultSch(), ...JSON.parse(raw) };
+      return migrate({ ...defaultSch(), ...JSON.parse(raw) });
     } catch (e) {
       return defaultSch();
     }
+  }
+  // 読むたびに通す（何度通しても同じ結果）。保存は次の update で行われる
+  function migrate(s) {
+    // v2: 日の種類を「塾の日／塾なし平日／休日」→「平日／休日」に。平日テンプレは「塾なし平日」を引き継ぐ
+    if ((s.version || 1) < 2) {
+      const t = s.templates;
+      t.weekday = t.free || t.juku || t.weekday || sampleTemplate('weekday');
+      if (!t.holiday) t.holiday = sampleTemplate('holiday');
+      delete t.free;
+      delete t.juku;
+      for (const day of Object.values(s.days)) {
+        if (day.type === 'juku' || day.type === 'free') day.type = 'weekday';
+      }
+      delete s.jukuDays;
+      s.version = 2;
+    }
+    return s;
   }
   function save(s) {
     try { localStorage.setItem(KEY, JSON.stringify(s)); return true; } catch (e) { return false; }
@@ -142,8 +154,7 @@ const SchCore = (() => {
   // ---- 1日ぶん ----
   function suggestType(s, key) {
     const dow = dateOf(key).getDay();
-    if (dow === 0 || dow === 6) return 'holiday';
-    return s.jukuDays.includes(dow) ? 'juku' : 'free';
+    return dow === 0 || dow === 6 ? 'holiday' : 'weekday';
   }
   function newDay(s, key) {
     return { type: suggestType(s, key), goal: '', blocks: [], paid: 0, planBonus: false, settled: false, stars: 0 };
@@ -207,10 +218,17 @@ const SchCore = (() => {
     const { b } = findBlock(s, key, id);
     if (!b || b.done || b.carried) return null;
     const next = ensureDay(s, addDays(key, 1));
-    next.blocks.push({ id: newId(), task: b.task, start: b.start, dur: b.dur, done: false, via: null, actualSec: 0 });
+    next.blocks.push({ id: newId(), task: b.task, start: b.start, dur: b.dur, done: false, via: null, actualSec: 0, createdOn: today() });
     b.carried = true;
     return b;
   }
+  // 前の日までに決めた勉強コマは、当日は消したり短くしたりできない（やらないコマを消して達成率を上げる抜け道を防ぐ）。
+  // createdOn が無いコマ（この仕組みより前に作ったもの）も前の日に決めた扱い
+  function isLocked(key, b) {
+    return key === today() && isStudy(b.task) && (b.createdOn || '') < key;
+  }
+  function minDur(b) { return b.base != null ? b.base : b.dur; }
+
   // 計画ボーナスは「あした」の計画だけ（先の日まで作ってためるのを防ぐ）
   function maybePlanBonus(s, key) {
     const day = s.days[key];
@@ -323,7 +341,7 @@ const SchCore = (() => {
     task, isStudy, color, newId,
     load, save, update,
     suggestType, newDay, ensureDay, studyBlocks, actualMin, points, stats, earned, syncDay,
-    findBlock, markDone, undoDone, addActual, carry, maybePlanBonus,
+    findBlock, markDone, undoDone, addActual, carry, isLocked, minDur, maybePlanBonus,
     weekBoss, settle, aggregate,
   };
 })();
