@@ -209,6 +209,14 @@ const SchCore = (() => {
     b.done = false; b.via = null; b.doneAt = null;
     syncDay(s, day);
   }
+  // 勉強以外の予定（ごはん・塾など）のチェック。ゴールドや★には関係しない
+  function toggleOther(s, key, id) {
+    const { day, b } = findBlock(s, key, id);
+    if (!b || isStudy(b.task) || day.settled) return null;
+    b.done = !b.done;
+    b.doneAt = b.done ? Date.now() : null;
+    return b.done;
+  }
   function addActual(s, key, id, sec) {
     const { b } = findBlock(s, key, id);
     if (b && sec > 0) b.actualSec = (b.actualSec || 0) + sec;
@@ -341,7 +349,7 @@ const SchCore = (() => {
     task, isStudy, color, newId,
     load, save, update,
     suggestType, newDay, ensureDay, studyBlocks, actualMin, points, stats, earned, syncDay,
-    findBlock, markDone, undoDone, addActual, carry, isLocked, minDur, maybePlanBonus,
+    findBlock, markDone, undoDone, toggleOther, addActual, carry, isLocked, minDur, maybePlanBonus,
     weekBoss, settle, aggregate,
   };
 })();

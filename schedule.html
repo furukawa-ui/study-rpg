@@ -128,6 +128,8 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .block.overlap { border-color: var(--danger-border); border-left-color: var(--c); }
 .check { flex: none; width: 58px; height: 58px; min-height: 58px; border-radius: 50%; padding: 0; font-size: 28px; border: 3px solid var(--c); color: var(--c); background: var(--surface); box-shadow: none; }
 .block.done .check { background: var(--success); border-color: var(--success); color: #fff; }
+.check.sm { width: 40px; height: 40px; min-height: 40px; font-size: 20px; border-width: 2px; }
+.block.nonstudy.done { background: var(--success-soft); border-color: var(--success-border); border-left-color: var(--c); color: var(--text-2); }
 .block.pop .check { animation: pop .6s ease-out; }
 .time { flex: none; width: 104px; font-size: 14px; color: var(--text-2); font-feature-settings: "tnum"; }
 .name { flex: 1; min-width: 0; font-size: 18px; font-weight: 700; }
@@ -341,7 +343,13 @@ function renderTodayBlock(b) {
   const t = C.task(b.task);
   const time = `${C.hm(b.start)}〜${C.hm(b.start + b.dur)}`;
   if (!t.subj) {
-    return `<div class="block nonstudy" style="--c:${C.color(b.task)}"><div class="time">${time}</div><div class="name">${t.emoji} ${t.name}</div></div>`;
+    const cls = ['block', 'nonstudy', b.done ? 'done' : '', ui.lastDoneId === b.id ? 'pop' : ''].join(' ');
+    return `
+      <div class="${cls}" style="--c:${C.color(b.task)}">
+        <button class="check sm" data-act="check-other" data-id="${b.id}" aria-label="チェック">${b.done ? '✔' : ''}</button>
+        <div class="time">${time}</div>
+        <div class="name">${t.emoji} ${t.name}</div>
+      </div>`;
   }
   const actual = b.actualSec > 0 ? ` ／ じっさい ${Math.round(b.actualSec / 60)}分` : '';
   const reward = b.done ? ` <span class="got">✔ +${C.points(b)}G</span>` : ` ・ クリアで +${C.points(b)}G`;
@@ -567,6 +575,11 @@ function toggleDone(id) {
   render();
   afterDone(C.task(b.task), r);
 }
+function toggleOther(id) {
+  const done = mutate(s => C.toggleOther(s, C.today(), id));
+  if (done) ui.lastDoneId = id;
+  render();
+}
 function afterDone(t, r) {
   showToast(`✅ ${t.name} クリア！ +${r.pts}G`, true);
   if (r.after === 3 && r.before < 3) {
@@ -720,6 +733,7 @@ function renderSettings() {
         <li>週ボス：HP${C.WEEK_BOSS_HP}。★1つで 1ダメージ。たおすと +${C.WEEK_BOSS_GOLD}G</li>
         <li>タイマーで やった時間は RPGの けいけんちにも なるよ</li>
         <li>できなかった コマは「↪ あした」で 次の日へ。ペナルティは なし！</li>
+        <li>ごはん・塾などの そのほかの よていも タッチで チェックできるよ（ゴールドや ★には 入らない）</li>
       </ul>
     </div>`;
 }
@@ -764,6 +778,7 @@ document.getElementById('app').addEventListener('click', e => {
     case 'rpg': location.href = 'index.html'; break;
     case 'tab': ui.tab = el.dataset.tab; ui.tplType = null; render(); window.scrollTo(0, 0); break;
     case 'toggle': toggleDone(id); break;
+    case 'check-other': toggleOther(id); break;
     case 'start': startTimer(id); break;
     case 'carry': carryBlock(id); break;
     case 'goplan': ui.tab = 'plan'; ui.planKey = el.dataset.key; render(); window.scrollTo(0, 0); break;
