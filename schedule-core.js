@@ -4,6 +4,8 @@
 // RPG 側が「ledger − 受け取りずみ」の差分を自分のゴールドに足す。
 // RPG 側は勉強中に何度もセーブするので、こちらから本体のキーに直接書くと上書きし合ってゴールドが消えるため。
 const SchCore = (() => {
+  // このファイルを変えたら上げる。schedule.html / index.html の CORE_VERSION と script の ?v= も同じ値に
+  const VERSION = 2;
   const KEY = 'study-rpg-schedule-v1';
 
   const SUBJ = {
@@ -343,7 +345,7 @@ const SchCore = (() => {
   }
 
   return {
-    KEY, SUBJ, TASKS, DAY_TYPES, STAR_BONUS, STAR_RATES, PLAN_BONUS, STREAK_REWARDS,
+    VERSION, KEY, SUBJ, TASKS, DAY_TYPES, STAR_BONUS, STAR_RATES, PLAN_BONUS, STREAK_REWARDS,
     REST_TICKET_MAX, STAMPS_PER_CARD, WEEK_BOSS_HP, WEEK_BOSS_GOLD,
     pad2, keyOf, dateOf, today, addDays, weekStart, wdJa, fmtJa, hm,
     task, isStudy, color, newId,

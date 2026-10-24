@@ -24,6 +24,8 @@
 - `index.html` … RPG本体。HTML/CSS/JS を全部1ファイルに内包。ビルド工程なし。
 - `schedule.html` … 📅 スケジュール画面（RPGとは別ページ）。
 - `schedule-core.js` … スケジュールの共通ロジック（`SchCore` 名前空間）。上の2ページ両方が読み込む。
+  - **このファイルを変えたら版番号を3か所そろえて上げる**: `schedule-core.js` の `VERSION`、`schedule.html` と `index.html` の `CORE_VERSION` と `<script src="schedule-core.js?v=N">`。
+    GitHub Pages はファイルごとに最大10分キャッシュ（max-age=600）するため、iPadで新しいHTML＋古いcore（またはその逆）になり、無い関数を呼んでボタンが無反応になったことがある（2026-10）。版がずれていたら各ページが1回だけ `?r=` 付きで読み直す。
 - `audio/` … 教科別BGM・タイトルBGM（mp3）
 - `images/` … 勇者・敵キャラ・タイトルロゴ・favicon（png）
 - フレームワーク・npm・サーバーなし。**ブラウザで `index.html` を開くだけで動く**。

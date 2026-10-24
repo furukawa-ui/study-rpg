@@ -57,7 +57,9 @@ button {
   padding: 10px 14px; min-height: 44px; cursor: pointer; touch-action: manipulation;
   box-shadow: var(--shadow);
 }
-button:active { background: var(--surface-2); }
+button { transition: transform .06s, background-color .06s; }
+button:active { background: var(--border); transform: scale(0.96); }
+[data-act] { touch-action: manipulation; }
 button:disabled { opacity: .4; cursor: not-allowed; }
 .lock-note { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); color: var(--text-2); font-size: 13px; }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
@@ -123,7 +125,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .block.done { background: var(--success-soft); border-color: var(--success-border); border-left-color: var(--c); }
 .block.carried { opacity: .55; }
 .block.editable { cursor: pointer; }
-.block.editable:active { background: var(--surface-2); }
+.block.editable:active { background: var(--primary-soft); transform: scale(0.99); }
 .block.new { animation: flash 1.2s; }
 .block.overlap { border-color: var(--danger-border); border-left-color: var(--c); }
 .check { flex: none; width: 58px; height: 58px; min-height: 58px; border-radius: 50%; padding: 0; font-size: 28px; border: 3px solid var(--c); color: var(--c); background: var(--surface); box-shadow: none; }
@@ -195,8 +197,28 @@ hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 
-<script src="schedule-core.js"></script>
+<script src="schedule-core.js?v=2"></script>
 <script>
+// 公開サーバー(GitHub Pages)はファイルごとに最大10分キャッシュされ、このページと schedule-core.js の版がずれることがある。
+// ずれたままだと無い関数を呼んでボタンが反応しなくなるので、1回だけキャッシュを避けて読み直す
+const CORE_VERSION = 2;
+(() => {
+  let reloaded = false;
+  try { reloaded = sessionStorage.getItem('sch-core-reload') === '1'; } catch (e) {}
+  if (typeof SchCore === 'undefined' || SchCore.VERSION !== CORE_VERSION) {
+    if (reloaded) return;
+    try { sessionStorage.setItem('sch-core-reload', '1'); } catch (e) {}
+    const q = new URLSearchParams(location.search);
+    q.set('r', Date.now());
+    location.replace(location.pathname + '?' + q);
+  } else {
+    try { sessionStorage.removeItem('sch-core-reload'); } catch (e) {}
+  }
+})();
+
+// iOS Safari は touchstart を受け取るリスナーが無いと :active（押している間の見た目）が出ない
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 const C = SchCore;
 const MAIN_KEY = 'study-rpg-v1';
 const DURS = [10, 15, 20, 30, 40, 60, 90, 120, 180];
@@ -400,7 +422,7 @@ function renderPlan() {
         `<button data-act="daytype" data-type="${k}" class="${day.type === k ? 'on' : ''}">${v.emoji} ${v.name}</button>`).join('')}</div>
       <div class="btns"><button class="btn-primary" data-act="loadtpl" ${hasLocked ? 'disabled' : ''}>📋 「${C.DAY_TYPES[day.type].name}」の テンプレートを 読みこむ</button></div>
       <div class="label">🗣 ${isTomorrow ? 'あした' : 'きょう'}の 目標・ひとこと（じぶんで せんげん！）</div>
-      <input class="goal-input" data-act="goal" maxlength="40" value="${escapeHtml(day.goal || '')}" placeholder="れい：計算は ていねいに 全問正解！">
+      <input class="goal-input" data-act="goal" maxlength="40" enterkeyhint="done" value="${escapeHtml(day.goal || '')}" placeholder="れい：計算は ていねいに 全問正解！">
       ${bonus}
       ${lockNote}
     </div>
@@ -798,16 +820,33 @@ document.getElementById('app').addEventListener('input', e => {
   const v = e.target.value.slice(0, 40);
   mutate(s => { C.ensureDay(s, planKey()).goal = v; });
 });
+document.getElementById('app').addEventListener('keydown', e => {
+  if (e.target.dataset.act === 'goal' && e.key === 'Enter') e.target.blur();
+});
+
+// 入力中やモーダル表示中に画面を作り直すと、タップや入力が消えるので待つ
+function renderIfIdle() {
+  const a = document.activeElement;
+  if (modalOpen() || (a && a.classList.contains('goal-input'))) return;
+  render();
+}
+function updateGold() {
+  const g = document.querySelector('.gold');
+  if (g) g.textContent = `💰 ${goldNow()} G`;
+}
 
 // 別タブ・RPG側での変更、日付またぎに追従
 function refresh() {
   sch = C.load();
   mutate(s => C.settle(s));
-  if (!modalOpen()) render();
+  renderIfIdle();
   showResults();
 }
+// RPG本体のセーブ（タイマー中は0.5秒ごと）では画面全体を作り直さず、ゴールド表示だけ更新する
+// （作り直すと押している途中のボタンが消えてタップが効かなくなる）
 window.addEventListener('storage', e => {
-  if (e.key === C.KEY || e.key === MAIN_KEY) { sch = C.load(); if (!modalOpen()) render(); }
+  if (e.key === C.KEY) { sch = C.load(); renderIfIdle(); }
+  else if (e.key === MAIN_KEY) updateGold();
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 

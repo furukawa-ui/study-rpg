@@ -950,9 +950,31 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 
-<script src="schedule-core.js"></script>
+<script src="schedule-core.js?v=2"></script>
 <script>
 'use strict';
+
+// GitHub Pages はファイルごとに最大10分キャッシュされ、このページと schedule-core.js の版がずれることがある。
+// ずれていたら1回だけキャッシュを避けて読み直す（?sched= などの引数は残す）
+const CORE_VERSION = 2;
+(() => {
+  let reloaded = false;
+  try { reloaded = sessionStorage.getItem('rpg-core-reload') === '1'; } catch (e) {}
+  if (typeof SchCore === 'undefined' || SchCore.VERSION !== CORE_VERSION) {
+    if (reloaded) return;
+    try { sessionStorage.setItem('rpg-core-reload', '1'); } catch (e) {}
+    const q = new URLSearchParams(location.search);
+    q.set('r', Date.now());
+    location.replace(location.pathname + '?' + q);
+  } else {
+    try { sessionStorage.removeItem('rpg-core-reload'); } catch (e) {}
+    const q = new URLSearchParams(location.search);
+    if (q.has('r')) {
+      q.delete('r');
+      history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : ''));
+    }
+  }
+})();
 
 // ============================================================
 // データ定義
