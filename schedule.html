@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f8fafc">
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="apple-touch-icon" href="images/favicon.png">
+<title>スケジュール - べんきょうクエスト</title>
+<style>
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-2: #475569;
+  --muted: #64748b;
+  --primary: #4f46e5;
+  --primary-dark: #4338ca;
+  --primary-soft: #eef2ff;
+  --gold: #b45309;
+  --star: #f59e0b;
+  --star-off: #e2e8f0;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --success-border: #bbf7d0;
+  --danger: #dc2626;
+  --danger-border: #fecaca;
+  --info: #0284c7;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--text);
+  font-family: "Hiragino Maru Gothic ProN", "ヒラギノ丸ゴ ProN", "ヒラギノ角ゴシック", "Hiragino Sans", sans-serif;
+  font-size: 17px; line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+body { min-height: 100vh; padding: 12px; padding-bottom: 80px; user-select: none; -webkit-user-select: none; }
+#app { max-width: 1000px; margin: 0 auto; }
+
+.panel { border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin: 10px 0; background: var(--surface); box-shadow: var(--shadow); }
+.panel-title { font-size: 14px; font-weight: 700; color: var(--text-2); margin-bottom: 8px; letter-spacing: 0.05em; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.small { font-size: 13px; color: var(--muted); }
+.mt8 { margin-top: 8px; }
+
+button {
+  font-family: inherit; font-size: 17px; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px;
+  padding: 10px 14px; min-height: 44px; cursor: pointer; touch-action: manipulation;
+  box-shadow: var(--shadow);
+}
+button:active { background: var(--surface-2); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+.btn-primary:active { background: var(--primary-dark); }
+.btn-success { background: var(--success-soft); border-color: var(--success); color: var(--success); font-weight: 700; }
+.btn-success:active { background: var(--success-border); }
+.btn-danger { color: var(--danger); border-color: var(--danger-border); }
+.btn-danger:active { background: #fef2f2; }
+
+/* モーダル・トースト */
+.modal-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
+.modal { border-radius: 16px; background: var(--surface); padding: 18px; max-width: 560px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25); }
+.confirm-btns { display: flex; gap: 10px; margin-top: 14px; }
+.confirm-btns button { flex: 1; }
+#toast-root { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 200; align-items: center; pointer-events: none; }
+.toast { background: var(--text); color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 16px; animation: toastIn 0.3s ease-out; max-width: 90vw; text-align: center; white-space: pre-wrap; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25); }
+.toast.big { background: var(--success); font-size: 18px; font-weight: 700; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+.celebrate { text-align: center; max-width: 460px; border: 2px solid #fcd34d; box-shadow: 0 0 0 6px #fef3c7, 0 20px 40px rgba(15, 23, 42, 0.25); }
+.celebrate .emoji { font-size: 64px; line-height: 1; margin: 6px 0; animation: pop 0.6s ease-out; }
+.celebrate .head { color: var(--gold); font-size: 15px; font-weight: 700; letter-spacing: 2px; }
+.celebrate .title { font-size: 24px; font-weight: 700; margin: 8px 0; }
+.celebrate .line { font-size: 16px; margin: 6px 0; }
+@keyframes pop { 0% { transform: scale(0.2); opacity: 0; } 70% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(1); } }
+
+/* ヘッダ */
+.head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.head h1 { flex: 1; margin: 0; font-size: 22px; color: var(--text); letter-spacing: 0.03em; }
+.gold { color: var(--gold); font-size: 18px; font-weight: 700; white-space: nowrap; background: #fffbeb; border: 1px solid #fde68a; border-radius: 999px; padding: 4px 14px; }
+
+/* ステータス（れんぞく・チケット・スタンプ・週ボス） */
+.status { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+@media (max-width: 640px) { .status { grid-template-columns: repeat(2, 1fr); } }
+.stat { border: 1px solid var(--border); border-radius: 12px; padding: 10px 8px; text-align: center; background: var(--surface); box-shadow: var(--shadow); }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.stat .s { font-size: 12px; color: var(--success); }
+.hp { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; margin-top: 6px; }
+.hp > div { height: 100%; background: var(--danger); transition: width .4s; }
+
+/* タブ・切りかえ */
+.tabs { display: flex; gap: 6px; margin: 12px 0 4px; }
+.tabs button { flex: 1; font-size: 16px; padding: 10px 4px; }
+.tabs button.on, .seg button.on { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button { flex: 1; font-size: 15px; }
+.label { font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+.date { font-size: 20px; font-weight: 700; }
+.badge { display: inline-block; font-size: 13px; font-weight: 400; border: 1px solid var(--border-strong); border-radius: 12px; padding: 1px 10px; margin-left: 6px; color: var(--text-2); vertical-align: middle; background: var(--surface-2); }
+
+/* きょう */
+.goal-show { background: #fffbeb; border: 1px dashed #fbbf24; border-radius: 10px; padding: 8px 12px; margin: 8px 0; color: #92400e; }
+.goal-input { width: 100%; padding: 10px 12px; font-size: 17px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font-family: inherit; user-select: text; -webkit-user-select: text; }
+.goal-input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+.progress { height: 14px; border-radius: 7px; overflow: hidden; background: var(--surface-2); margin: 8px 0; }
+.progress > div { height: 100%; background: linear-gradient(90deg, #4ade80, var(--success)); border-radius: 7px; transition: width .4s; }
+.stars { font-size: 26px; color: var(--star); letter-spacing: 2px; white-space: nowrap; }
+.stars .off { color: var(--star-off); }
+
+.block { --c: #94a3b8; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-left: 6px solid var(--c); border-radius: 12px; padding: 8px 10px; margin: 6px 0; background: var(--surface); box-shadow: var(--shadow); }
+.block.nonstudy { background: var(--surface-2); box-shadow: none; padding: 4px 10px; color: var(--muted); }
+.block.done { background: var(--success-soft); border-color: var(--success-border); border-left-color: var(--c); }
+.block.carried { opacity: .55; }
+.block.editable { cursor: pointer; }
+.block.editable:active { background: var(--surface-2); }
+.block.new { animation: flash 1.2s; }
+.block.overlap { border-color: var(--danger-border); border-left-color: var(--c); }
+.check { flex: none; width: 58px; height: 58px; min-height: 58px; border-radius: 50%; padding: 0; font-size: 28px; border: 3px solid var(--c); color: var(--c); background: var(--surface); box-shadow: none; }
+.block.done .check { background: var(--success); border-color: var(--success); color: #fff; }
+.block.pop .check { animation: pop .6s ease-out; }
+.time { flex: none; width: 104px; font-size: 14px; color: var(--text-2); font-feature-settings: "tnum"; }
+.name { flex: 1; min-width: 0; font-size: 18px; font-weight: 700; }
+.block.nonstudy .name { font-weight: 400; }
+.name .sub { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+.name .got { color: var(--gold); font-weight: 700; }
+.acts { display: flex; gap: 6px; flex: none; }
+.acts button { font-size: 14px; padding: 8px 10px; }
+@media (max-width: 560px) {
+  .block { flex-wrap: wrap; }
+  .time { width: auto; }
+}
+@keyframes flash { 0% { background: #fef3c7; } 100% { background: var(--surface); } }
+
+.palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.chip { --c: #94a3b8; border: 1px solid var(--border); border-left: 6px solid var(--c); text-align: left; font-size: 15px; padding: 10px; }
+.sumchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.sumchip { --c: #94a3b8; border: 1px solid var(--c); color: var(--c); background: var(--surface); border-radius: 12px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
+.empty { text-align: center; padding: 20px 8px; color: var(--muted); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.btns > button { flex: 1; }
+
+/* コマの編集 */
+.edit-time { font-size: 30px; font-weight: 700; text-align: center; color: var(--primary); font-feature-settings: "tnum"; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.grid5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.grid5 button.on { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+
+/* ふりかえり */
+.bars .r { --c: #94a3b8; display: grid; grid-template-columns: 140px 1fr 128px; gap: 8px; align-items: center; font-size: 14px; margin: 6px 0; }
+.bar { position: relative; height: 18px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.bar .p { position: absolute; left: 0; top: 0; bottom: 0; border: 1px dashed #94a3b8; border-radius: 5px; }
+.bar .a { position: absolute; left: 0; top: 3px; bottom: 3px; background: var(--c); border-radius: 4px; }
+.bars .v { white-space: nowrap; text-align: right; font-feature-settings: "tnum"; font-weight: 700; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 170px; align-items: end; margin-top: 8px; border-bottom: 1px solid var(--border-strong); }
+.wcol { height: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 3px; }
+.wcol .p { width: 38%; border: 1px dashed #94a3b8; border-bottom: none; border-radius: 4px 4px 0 0; }
+.wcol .a { width: 38%; background: var(--success); border-radius: 4px 4px 0 0; }
+.wlab { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; font-size: 13px; color: var(--text-2); margin-top: 4px; }
+.wlab .st { color: var(--star); }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal .h { text-align: center; font-size: 12px; color: var(--muted); }
+.cal .d { min-height: 60px; border: 1px solid var(--border); border-radius: 8px; padding: 3px 5px; font-size: 12px; background: var(--surface); }
+.cal .d .n { color: var(--text-2); }
+.cal .d .st { color: var(--star); font-size: 13px; }
+.cal .d.s1 { background: #fffbeb; }
+.cal .d.s2 { background: #fef3c7; }
+.cal .d.s3 { background: #fde68a; border-color: var(--star); }
+.cal .d.today { outline: 2px solid var(--primary); }
+
+/* せってい */
+.dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.dow button.on { background: var(--info); color: #fff; border-color: var(--info); font-weight: 700; }
+.stamps { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.stamps span { aspect-ratio: 1; border: 2px dashed var(--border-strong); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.stamps span.on { border: 2px solid var(--star); background: #fffbeb; }
+.stamps span.soon { border: 2px dashed var(--star); opacity: .7; }
+.rules { margin: 0; padding-left: 1.2em; color: var(--text-2); }
+.rules li { margin: 4px 0; font-size: 15px; }
+hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="schedule-core.js"></script>
+<script>
+const C = SchCore;
+const MAIN_KEY = 'study-rpg-v1';
+const DURS = [10, 15, 20, 30, 40, 60, 90, 120, 180];
+
+let sch = C.load();
+const ui = { tab: 'today', planKey: null, tplType: null, statsMode: 'week', statsAnchor: null, lastDoneId: null, lastAddedId: null };
+
+// ---- RPG本体のセーブは読むだけ（名前とゴールド表示用） ----
+function mainState() {
+  try { return JSON.parse(localStorage.getItem(MAIN_KEY)) || {}; } catch (e) { return {}; }
+}
+function heroName() { return (mainState().hero || {}).name || 'ゆうしゃ'; }
+function goldNow() {
+  const m = mainState();
+  return Math.max(0, (m.gold || 0) + (sch.ledger || 0) - (m.schedGoldClaimed || 0));
+}
+
+function mutate(fn) {
+  const { s, r } = C.update(fn);
+  sch = s;
+  return r;
+}
+
+// ---- 共通UI ----
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function showToast(msg, big = false) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (big ? ' big' : '');
+  el.textContent = msg;
+  document.getElementById('toast-root').appendChild(el);
+  setTimeout(() => el.remove(), big ? 3800 : 2600);
+}
+function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+function modalOpen() { return document.getElementById('modal-root').children.length > 0; }
+function showConfirm(title, body, onYes) {
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-bg"><div class="modal">
+      <div class="panel-title">${title}</div>
+      <div>${body}</div>
+      <div class="confirm-btns"><button class="btn-danger" id="cf-yes">はい</button><button id="cf-no">いいえ</button></div>
+    </div></div>`;
+  document.getElementById('cf-yes').onclick = () => { closeModal(); onYes(); };
+  document.getElementById('cf-no').onclick = closeModal;
+}
+function celebrate(emoji, head, title, lines) {
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-bg"><div class="modal celebrate">
+      <div class="emoji">${emoji}</div>
+      <div class="head">${head}</div>
+      <div class="title">${title}</div>
+      ${lines.map(l => `<div class="line">${l}</div>`).join('')}
+      <div class="confirm-btns"><button class="btn-primary" id="cel-ok">やったー！</button></div>
+    </div></div>`;
+  document.getElementById('cel-ok').onclick = closeModal;
+}
+function stars(n) { return [1, 2, 3].map(i => i <= n ? '★' : '<span class="off">★</span>').join(''); }
+function fmtMin(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? `${h}時間${m ? m + '分' : ''}` : `${m}分`;
+}
+
+// ---- 画面全体 ----
+function render() {
+  const tabs = [['today', '📋 きょう'], ['plan', '📝 計画'], ['stats', '📊 ふりかえり'], ['settings', '⚙ せってい']];
+  const body = { today: renderToday, plan: renderPlan, stats: renderStats, settings: renderSettings }[ui.tab]();
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <button data-act="rpg">← RPGへ</button>
+      <h1>📅 ${escapeHtml(heroName())}の スケジュール</h1>
+      <div class="gold">💰 ${goldNow()} G</div>
+    </div>
+    ${renderStatus()}
+    <div class="tabs">${tabs.map(([k, l]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${body}`;
+  ui.lastDoneId = null;
+  ui.lastAddedId = null;
+}
+
+function todayStars() {
+  const d = sch.days[C.today()];
+  return d ? C.stats(d).stars : 0;
+}
+function renderStatus() {
+  const ts = todayStars();
+  const wk = C.weekStart(C.today());
+  const boss = C.weekBoss(wk);
+  const dmg = Math.min(C.WEEK_BOSS_HP, (sch.bossDmg[wk] || 0) + ts);
+  const killed = sch.bossDefeated[wk];
+  const stampsSoon = sch.stamps + (ts >= 1 ? 1 : 0);
+  let bossNote;
+  if (killed) bossNote = 'たおした！';
+  else if (dmg >= C.WEEK_BOSS_HP) bossNote = 'HP0！あした ほうしゅう';
+  else bossNote = `のこりHP ${C.WEEK_BOSS_HP - dmg}（★1つ＝1ダメージ）`;
+  return `
+    <div class="status">
+      <div class="stat"><div class="k">🔥 れんぞく</div><div class="v">${sch.streak + (ts >= 1 ? 1 : 0)}日</div>
+        <div class="s">${ts >= 1 ? 'きょう たっせい！' : (sch.streak > 0 ? 'きょう★1で つづく' : '★1で スタート')}</div></div>
+      <div class="stat"><div class="k">🎫 おやすみチケット</div><div class="v">${sch.restTickets}まい</div>
+        <div class="s">★0の日も れんぞくを まもる</div></div>
+      <div class="stat"><div class="k">📮 スタンプ</div><div class="v">${Math.min(stampsSoon, C.STAMPS_PER_CARD)} / ${C.STAMPS_PER_CARD}</div>
+        <div class="s">${stampsSoon >= C.STAMPS_PER_CARD ? 'あした 🎁たからばこ！' : '10こで 🎁たからばこ'}</div></div>
+      <div class="stat"><div class="k">👾 週ボス</div><div class="v" style="font-size:15px;">${boss.emoji} ${boss.name}</div>
+        <div class="hp"><div style="width:${killed ? 0 : Math.round((C.WEEK_BOSS_HP - dmg) / C.WEEK_BOSS_HP * 100)}%"></div></div>
+        <div class="s">${bossNote}</div></div>
+    </div>`;
+}
+
+// ---- きょう ----
+function renderToday() {
+  const key = C.today();
+  const day = sch.days[key];
+  const head = `<div class="date">${C.fmtJa(key)}${day ? `<span class="badge">${C.DAY_TYPES[day.type].emoji} ${C.DAY_TYPES[day.type].name}</span>` : ''}</div>`;
+  if (!day || !day.blocks.length) {
+    return `<div class="panel">${head}
+      <div class="empty">きょうの 計画が まだ ないよ。<br>まずは 小さく 2〜3コマから 立ててみよう！</div>
+      <div class="btns"><button class="btn-primary" data-act="goplan" data-key="${key}">📝 きょうの計画を 作る</button></div></div>`;
+  }
+  const st = C.stats(day);
+  const pct = Math.min(100, Math.round(st.rate * 100));
+  const blocks = [...day.blocks].sort((a, b) => a.start - b.start).map(b => renderTodayBlock(b)).join('');
+  return `
+    <div class="panel">
+      ${head}
+      ${day.goal ? `<div class="goal-show">🗣 きょうの目標：「${escapeHtml(day.goal)}」</div>` : ''}
+      <div class="row mt8"><div>クエスト <b>${st.doneCount} / ${st.count}</b> クリア　たっせい ${pct}%</div><div class="stars">${stars(st.stars)}</div></div>
+      <div class="progress"><div style="width:${pct}%"></div></div>
+      <div class="small">${nextStarHint(st)}　きょう かくとく <b style="color:var(--gold)">${day.paid || 0}G</b></div>
+    </div>
+    <div>${blocks}</div>
+    <div class="btns">
+      <button class="btn-primary" data-act="goplan" data-key="${C.addDays(key, 1)}">📝 あしたの計画を 立てる →</button>
+      <button data-act="goplan" data-key="${key}">✏ きょうの計画を なおす</button>
+    </div>`;
+}
+function nextStarHint(st) {
+  if (!st.planMin) return '勉強の コマを 入れよう';
+  if (st.stars >= 3) return '🎉 パーフェクト！ ぜんぶ クリア！';
+  const need = Math.max(0, Math.ceil(st.planMin * C.STAR_RATES[st.stars]) - st.doneMin);
+  return `あと ${need}分ぶん クリアで ${'★'.repeat(st.stars + 1)}（+${C.STAR_BONUS[st.stars + 1] - C.STAR_BONUS[st.stars]}G）`;
+}
+function renderTodayBlock(b) {
+  const t = C.task(b.task);
+  const time = `${C.hm(b.start)}〜${C.hm(b.start + b.dur)}`;
+  if (!t.subj) {
+    return `<div class="block nonstudy" style="--c:${C.color(b.task)}"><div class="time">${time}</div><div class="name">${t.emoji} ${t.name}</div></div>`;
+  }
+  const actual = b.actualSec > 0 ? ` ／ じっさい ${Math.round(b.actualSec / 60)}分` : '';
+  const reward = b.done ? ` <span class="got">✔ +${C.points(b)}G</span>` : ` ・ クリアで +${C.points(b)}G`;
+  const cls = ['block', b.done ? 'done' : '', b.carried && !b.done ? 'carried' : '', ui.lastDoneId === b.id ? 'pop' : ''].join(' ');
+  return `
+    <div class="${cls}" style="--c:${C.color(b.task)}">
+      <button class="check" data-act="toggle" data-id="${b.id}" aria-label="クリア">${b.done ? '✔' : ''}</button>
+      <div class="time">${time}</div>
+      <div class="name">${t.emoji} ${t.name}<span class="sub">よてい ${b.dur}分${actual}${reward}${b.carried && !b.done ? ' ・ あしたへ回した' : ''}</span></div>
+      <div class="acts">
+        ${!b.done ? `<button class="btn-success" data-act="start" data-id="${b.id}">▶ タイマー</button>` : ''}
+        ${!b.done && !b.carried ? `<button data-act="carry" data-id="${b.id}">↪ あした</button>` : ''}
+      </div>
+    </div>`;
+}
+
+// ---- 計画 ----
+function planKey() {
+  const t = C.today();
+  return ui.planKey && ui.planKey >= t ? ui.planKey : C.addDays(t, 1);
+}
+function isTplMode() { return ui.tab === 'settings' && !!ui.tplType; }
+function viewDay(key) { return sch.days[key] || C.newDay(sch, key); }
+
+function renderPlan() {
+  const t = C.today(), tm = C.addDays(t, 1);
+  const key = planKey();
+  const day = viewDay(key);
+  const isTomorrow = key === tm;
+  let bonus = '';
+  if (isTomorrow) {
+    bonus = day.planBonus
+      ? '<div class="small mt8" style="color:var(--success)">📝 計画ボーナス ゲットずみ！</div>'
+      : `<div class="small mt8" style="color:var(--gold)">📝 勉強のコマを 1つ以上 入れると 計画ボーナス +${C.PLAN_BONUS}G</div>`;
+  }
+  return `
+    <div class="panel">
+      <div class="seg">
+        <button data-act="plankey" data-key="${t}" class="${key === t ? 'on' : ''}">きょう ${C.fmtJa(t)}</button>
+        <button data-act="plankey" data-key="${tm}" class="${key === tm ? 'on' : ''}">あした ${C.fmtJa(tm)}</button>
+      </div>
+      <div class="label">日の しゅるい</div>
+      <div class="seg">${Object.entries(C.DAY_TYPES).map(([k, v]) =>
+        `<button data-act="daytype" data-type="${k}" class="${day.type === k ? 'on' : ''}">${v.emoji} ${v.name}</button>`).join('')}</div>
+      <div class="btns"><button class="btn-primary" data-act="loadtpl">📋 「${C.DAY_TYPES[day.type].name}」の テンプレートを 読みこむ</button></div>
+      <div class="label">🗣 ${isTomorrow ? 'あした' : 'きょう'}の 目標・ひとこと（じぶんで せんげん！）</div>
+      <input class="goal-input" data-act="goal" maxlength="40" value="${escapeHtml(day.goal || '')}" placeholder="れい：計算は ていねいに 全問正解！">
+      ${bonus}
+    </div>
+    ${renderEditor(day.blocks, false)}`;
+}
+
+function renderEditor(blocks, isTpl) {
+  const sorted = [...blocks].sort((a, b) => a.start - b.start);
+  const overlap = new Set();
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].start < sorted[i - 1].start + sorted[i - 1].dur) { overlap.add(sorted[i].id); overlap.add(sorted[i - 1].id); }
+  }
+  const rows = sorted.length ? sorted.map(b => {
+    const t = C.task(b.task);
+    const cls = ['block', 'editable', t.subj ? '' : 'nonstudy', overlap.has(b.id) ? 'overlap' : '', ui.lastAddedId === b.id ? 'new' : '', b.done ? 'done' : ''].join(' ');
+    return `
+      <div class="${cls}" style="--c:${C.color(b.task)}" data-act="edit" data-id="${b.id}">
+        <div class="time">${C.hm(b.start)}〜${C.hm(b.start + b.dur)}</div>
+        <div class="name">${t.emoji} ${t.name}<span class="sub">${b.dur}分${overlap.has(b.id) ? ' ・ ⚠ 時間が かさなってる' : ''}${b.done ? ' ・ ✔ クリアずみ' : ''}</span></div>
+        <div class="small">✏</div>
+      </div>`;
+  }).join('') : '<div class="empty">まだ コマが ないよ。下の ボタンで 追加しよう！</div>';
+
+  const bySubj = {};
+  let total = 0;
+  for (const b of blocks) {
+    const s = C.task(b.task).subj;
+    if (!s) continue;
+    bySubj[s] = (bySubj[s] || 0) + b.dur;
+    total += b.dur;
+  }
+  const chips = Object.entries(bySubj).map(([s, m]) => `<span class="sumchip" style="--c:${C.SUBJ[s].color}">${C.SUBJ[s].name} ${fmtMin(m)}</span>`).join('');
+  const palette = study => C.TASKS.filter(t => !!t.subj === study).map(t =>
+    `<button class="chip" style="--c:${C.color(t.id)}" data-act="add" data-task="${t.id}">${t.emoji} ${t.name}</button>`).join('');
+
+  return `
+    <div class="panel">
+      <div class="panel-title">▼ ${isTpl ? 'テンプレートの ' : ''}コマ（タップで 時間を かえる）</div>
+      ${rows}
+      <div class="small mt8">勉強の 合計：<b>${fmtMin(total)}</b></div>
+      <div class="sumchips">${chips}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">▼ ＋ コマを 追加</div>
+      <div class="label">📚 勉強</div>
+      <div class="palette">${palette(true)}</div>
+      <div class="label">🕒 そのほかの よてい（ポイントなし）</div>
+      <div class="palette">${palette(false)}</div>
+      ${isTpl ? '' : '<div class="btns"><button data-act="savetpl">💾 この計画を テンプレートとして 保存</button></div>'}
+    </div>`;
+}
+
+// 計画（その日 or テンプレート）のコマを書きかえる共通口
+function targetBlocks(s) {
+  return isTplMode() ? s.templates[ui.tplType] : C.ensureDay(s, planKey()).blocks;
+}
+function editBlocks(fn) {
+  const bonus = mutate(s => {
+    fn(targetBlocks(s), s);
+    if (isTplMode()) return 0;
+    const key = planKey();
+    if (key === C.today()) C.syncDay(s, s.days[key]);
+    return C.maybePlanBonus(s, key);
+  });
+  if (bonus) showToast(`📝 計画ボーナス！\nあしたの計画を 立てた +${bonus}G`, true);
+  render();
+}
+function currentType() {
+  return isTplMode() ? ui.tplType : viewDay(planKey()).type;
+}
+function addBlock(taskId) {
+  const t = C.task(taskId);
+  editBlocks(blocks => {
+    const end = blocks.reduce((m, b) => Math.max(m, b.start + b.dur), 0);
+    const dur = t.def || 30;
+    const start = Math.min(end || (currentType() === 'holiday' ? 480 : 960), 1440 - dur);
+    const nb = { id: C.newId(), task: taskId, start, dur, done: false, via: null, actualSec: 0 };
+    blocks.push(nb);
+    ui.lastAddedId = nb.id;
+  });
+}
+function openEdit(id) {
+  const blocks = targetBlocks(C.load());
+  const b = blocks.find(x => x.id === id);
+  if (!b) { closeModal(); return; }
+  const t = C.task(b.task);
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-bg"><div class="modal" style="max-width:480px;">
+      <div class="panel-title">${t.emoji} ${t.name}</div>
+      <div class="edit-time">${C.hm(b.start)} 〜 ${C.hm(b.start + b.dur)}</div>
+      <div class="label">はじまる 時間</div>
+      <div class="grid4">
+        <button data-mv="-30">◀◀ 30分</button><button data-mv="-5">◀ 5分</button>
+        <button data-mv="5">5分 ▶</button><button data-mv="30">30分 ▶▶</button>
+      </div>
+      <div class="label">じかんの 長さ${t.subj ? '（勉強は 40分までが おすすめ）' : ''}</div>
+      <div class="grid5">${DURS.map(d => `<button data-dur="${d}" class="${b.dur === d ? 'on' : ''}">${d}分</button>`).join('')}</div>
+      <div class="confirm-btns">
+        <button class="btn-danger" id="ed-del">🗑 けす</button>
+        <button class="btn-primary" id="ed-ok" style="flex:2;">OK</button>
+      </div>
+    </div></div>`;
+  const change = fn => { editBlocks(bs => { const x = bs.find(y => y.id === id); if (x) fn(x); }); openEdit(id); };
+  document.querySelectorAll('#modal-root [data-mv]').forEach(btn => btn.onclick = () =>
+    change(x => { x.start = Math.max(0, Math.min(1440 - x.dur, x.start + Number(btn.dataset.mv))); }));
+  document.querySelectorAll('#modal-root [data-dur]').forEach(btn => btn.onclick = () =>
+    change(x => { x.dur = Number(btn.dataset.dur); if (x.start + x.dur > 1440) x.start = 1440 - x.dur; }));
+  document.getElementById('ed-ok').onclick = closeModal;
+  document.getElementById('ed-del').onclick = () => {
+    closeModal();
+    editBlocks(bs => { const i = bs.findIndex(y => y.id === id); if (i >= 0) bs.splice(i, 1); });
+  };
+}
+function loadTemplate() {
+  const key = planKey();
+  const type = viewDay(key).type;
+  const apply = () => {
+    editBlocks((blocks, s) => {
+      const day = C.ensureDay(s, key);
+      day.blocks = s.templates[type].map(b => ({ id: C.newId(), task: b.task, start: b.start, dur: b.dur, done: false, via: null, actualSec: 0 }));
+    });
+    showToast(`📋 「${C.DAY_TYPES[type].name}」を 読みこんだよ`);
+  };
+  if (viewDay(key).blocks.length) showConfirm('テンプレートを 読みこむ？', 'いまの コマは 消えて、テンプレートに 入れかわるよ', apply);
+  else apply();
+}
+function saveAsTemplate() {
+  const key = planKey();
+  const type = viewDay(key).type;
+  showConfirm(`「${C.DAY_TYPES[type].name}」の テンプレートに 保存？`, 'いまの テンプレートは この計画で 上書きされるよ', () => {
+    mutate(s => {
+      s.templates[type] = C.ensureDay(s, key).blocks.map(b => ({ id: C.newId(), task: b.task, start: b.start, dur: b.dur }));
+    });
+    showToast('💾 テンプレートを 保存したよ');
+    render();
+  });
+}
+
+// ---- きょうの完了・タイマー・あしたへ ----
+function toggleDone(id) {
+  const key = C.today();
+  const { b } = C.findBlock(sch, key, id);
+  if (!b) return;
+  if (b.done) {
+    showConfirm('もとに もどす？', `「${C.task(b.task).name}」を みかんりょうに もどすよ`, () => {
+      mutate(s => C.undoDone(s, key, id));
+      render();
+    });
+    return;
+  }
+  const r = mutate(s => C.markDone(s, key, id, 'tap'));
+  if (!r) return;
+  ui.lastDoneId = id;
+  render();
+  afterDone(C.task(b.task), r);
+}
+function afterDone(t, r) {
+  showToast(`✅ ${t.name} クリア！ +${r.pts}G`, true);
+  if (r.after === 3 && r.before < 3) {
+    celebrate('🎉', 'パーフェクト！', 'きょうの クエスト ぜんぶ クリア！', [`<span class="stars">${stars(3)}</span>`, `★ボーナス +${r.starGold}G`]);
+  } else if (r.after > r.before) {
+    setTimeout(() => showToast(`${'★'.repeat(r.after)} たっせい！ +${r.starGold}G`, true), 500);
+  }
+}
+function startTimer(id) {
+  location.href = 'index.html?sched=' + encodeURIComponent(C.today() + '|' + id);
+}
+function carryBlock(id) {
+  const b = mutate(s => C.carry(s, C.today(), id));
+  if (b) showToast(`↪ ${C.task(b.task).name} を あしたに 回したよ`);
+  render();
+}
+
+// ---- ふりかえり ----
+function periodKeys() {
+  const a = ui.statsAnchor || C.today();
+  if (ui.statsMode === 'day') return { keys: [a], label: C.fmtJa(a) };
+  if (ui.statsMode === 'week') {
+    const ws = C.weekStart(a);
+    const keys = [...Array(7)].map((_, i) => C.addDays(ws, i));
+    return { keys, label: `${C.fmtJa(keys[0])} 〜 ${C.fmtJa(keys[6])}` };
+  }
+  const d = C.dateOf(a);
+  const y = d.getFullYear(), m = d.getMonth();
+  const n = new Date(y, m + 1, 0).getDate();
+  return { keys: [...Array(n)].map((_, i) => C.keyOf(new Date(y, m, i + 1))), label: `${y}年${m + 1}月` };
+}
+function statsNav(dir) {
+  const a = ui.statsAnchor || C.today();
+  if (ui.statsMode === 'day') ui.statsAnchor = C.addDays(a, dir);
+  else if (ui.statsMode === 'week') ui.statsAnchor = C.addDays(a, 7 * dir);
+  else { const d = C.dateOf(a); ui.statsAnchor = C.keyOf(new Date(d.getFullYear(), d.getMonth() + dir, 1)); }
+  render();
+}
+function renderStats() {
+  const { keys, label } = periodKeys();
+  // まだ来ていない日の計画（達成0%）で平均が下がらないよう、集計は今日まで
+  const agg = C.aggregate(sch, keys.filter(k => k <= C.today()));
+  const seg = [['day', '日'], ['week', '週'], ['month', '月']].map(([k, l]) =>
+    `<button data-act="smode" data-mode="${k}" class="${ui.statsMode === k ? 'on' : ''}">${l}</button>`).join('');
+  let chart = '';
+  if (ui.statsMode === 'week') chart = renderWeekChart(keys);
+  if (ui.statsMode === 'month') chart = renderMonthCal(keys);
+  if (ui.statsMode === 'day' && sch.days[keys[0]]) {
+    const d = sch.days[keys[0]];
+    chart = `<div class="panel"><div class="panel-title">▼ この日の コマ</div>${[...C.studyBlocks(d)].sort((a, b) => a.start - b.start).map(b =>
+      `<div class="block ${b.done ? 'done' : ''}" style="--c:${C.color(b.task)}"><div class="time">${C.hm(b.start)}〜${C.hm(b.start + b.dur)}</div>
+       <div class="name">${C.task(b.task).emoji} ${C.task(b.task).name}<span class="sub">よてい ${b.dur}分 ／ じっさい ${C.actualMin(b)}分</span></div>
+       <div>${b.done ? '✔' : '−'}</div></div>`).join('') || '<div class="empty">勉強の コマなし</div>'}</div>`;
+  }
+  return `
+    <div class="panel">
+      <div class="seg">${seg}</div>
+      <div class="row mt8"><button data-act="snav" data-dir="-1">◀</button><div class="date" style="flex:1;text-align:center;">${label}</div><button data-act="snav" data-dir="1">▶</button></div>
+    </div>
+    <div class="status" style="margin-top:0;">
+      <div class="stat"><div class="k">よてい</div><div class="v">${fmtMin(agg.plan)}</div></div>
+      <div class="stat"><div class="k">じっさい</div><div class="v">${fmtMin(agg.actual)}</div></div>
+      <div class="stat"><div class="k">たっせい率（平均）</div><div class="v">${Math.round(agg.avgRate * 100)}%</div></div>
+      <div class="stat"><div class="k">★ かくとく</div><div class="v">${agg.stars}</div></div>
+    </div>
+    ${chart}
+    ${renderBars('やる事べつ', Object.entries(agg.byTask).map(([id, r]) => ({ label: `${C.task(id).emoji} ${C.task(id).name}`, color: C.color(id), ...r })), agg.actual)}
+    ${renderBars('教科べつ', subjRows(agg), agg.actual)}`;
+}
+function subjRows(agg) {
+  const by = {};
+  for (const [id, r] of Object.entries(agg.byTask)) {
+    const s = C.task(id).subj;
+    const x = by[s] || (by[s] = { plan: 0, actual: 0 });
+    x.plan += r.plan; x.actual += r.actual;
+  }
+  return Object.entries(by).map(([s, r]) => ({ label: C.SUBJ[s].name, color: C.SUBJ[s].color, ...r }));
+}
+function renderBars(title, rows, totalActual) {
+  if (!rows.length) return `<div class="panel"><div class="panel-title">▼ ${title}</div><div class="empty">この きかんの 計画は まだ ないよ</div></div>`;
+  rows.sort((a, b) => b.actual - a.actual || b.plan - a.plan);
+  const max = Math.max(1, ...rows.map(r => Math.max(r.plan, r.actual)));
+  return `
+    <div class="panel">
+      <div class="panel-title">▼ ${title}（点線＝よてい ／ 色＝じっさい）</div>
+      <div class="bars">${rows.map(r => `
+        <div class="r" style="--c:${r.color}">
+          <div>${r.label}</div>
+          <div class="bar"><div class="p" style="width:${r.plan / max * 100}%"></div><div class="a" style="width:${r.actual / max * 100}%"></div></div>
+          <div class="v">${fmtMin(r.actual)} <span class="small">${totalActual ? Math.round(r.actual / totalActual * 100) : 0}%</span></div>
+        </div>`).join('')}</div>
+    </div>`;
+}
+function renderWeekChart(keys) {
+  const data = keys.map(k => {
+    const d = sch.days[k];
+    const st = C.studyBlocks(d).length ? C.stats(d) : null;
+    return { k, plan: st ? st.planMin : 0, act: st ? st.actualMin : 0, stars: st ? st.stars : 0, has: !!st };
+  });
+  const max = Math.max(60, ...data.map(x => Math.max(x.plan, x.act)));
+  return `
+    <div class="panel">
+      <div class="panel-title">▼ 毎日の 勉強時間（点線＝よてい ／ みどり＝じっさい）</div>
+      <div class="week">${data.map(x => `<div class="wcol"><div class="p" style="height:${x.plan / max * 100}%"></div><div class="a" style="height:${x.act / max * 100}%"></div></div>`).join('')}</div>
+      <div class="wlab">${data.map(x => `<div>${C.wdJa(x.k)}<br><span class="st">${x.has ? (x.stars ? '★'.repeat(x.stars) : '−') : ''}</span><br><span class="small">${x.has ? x.act + '分' : ''}</span></div>`).join('')}</div>
+    </div>`;
+}
+function renderMonthCal(keys) {
+  const lead = (C.dateOf(keys[0]).getDay() + 6) % 7;
+  const t = C.today();
+  const cells = '<div></div>'.repeat(lead) + keys.map(k => {
+    const d = sch.days[k];
+    const st = C.studyBlocks(d).length ? C.stats(d) : null;
+    return `<div class="d ${st ? 's' + st.stars : ''} ${k === t ? 'today' : ''}"><div class="n">${Number(k.slice(8))}</div>
+      ${st ? `<div class="st">${st.stars ? '★'.repeat(st.stars) : '−'}</div><div>${st.actualMin}分</div>` : ''}</div>`;
+  }).join('');
+  return `<div class="panel"><div class="panel-title">▼ カレンダー</div>
+    <div class="cal">${'月火水木金土日'.split('').map(w => `<div class="h">${w}</div>`).join('')}${cells}</div></div>`;
+}
+
+// ---- せってい ----
+function renderSettings() {
+  const ts = todayStars();
+  const slots = [...Array(C.STAMPS_PER_CARD)].map((_, i) => {
+    if (i < sch.stamps) return '<span class="on">⭐</span>';
+    if (i === sch.stamps && ts >= 1) return '<span class="soon">✨</span>';
+    return '<span></span>';
+  }).join('');
+  const streakRules = Object.entries(C.STREAK_REWARDS).map(([d, g]) => `${d}日 +${g}G`).join('、');
+  return `
+    <div class="panel">
+      <div class="panel-title">▼ 塾の 曜日</div>
+      <div class="dow">${[1, 2, 3, 4, 5, 6, 0].map(d =>
+        `<button data-act="jukuday" data-dow="${d}" class="${sch.jukuDays.includes(d) ? 'on' : ''}">${'日月火水木金土'[d]}</button>`).join('')}</div>
+      <div class="small mt8">えらんだ曜日は「塾の日」、土日は「休日」が じどうで えらばれるよ（祝日は 計画のときに 切りかえてね）</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">▼ テンプレートを へんしゅう</div>
+      <div class="seg">${Object.entries(C.DAY_TYPES).map(([k, v]) =>
+        `<button data-act="tpl" data-type="${k}" class="${ui.tplType === k ? 'on' : ''}">${v.emoji} ${v.name}</button>`).join('')}</div>
+    </div>
+    ${ui.tplType ? renderEditor(sch.templates[ui.tplType], true) : ''}
+    <div class="panel">
+      <div class="panel-title">▼ 📮 スタンプカード（★1いじょうの日に 1こ）</div>
+      <div class="stamps">${slots}</div>
+      <div class="small mt8">10こ たまると 🎁たからばこ（300〜800G）。✨は きょうの ぶん（あした おされるよ）</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">▼ ポイントの ルール</div>
+      <ul class="rules">
+        <li>コマを クリア：20G ＋ よてい時間の はんぶん（30分のコマ → 35G）</li>
+        <li>1日の ★：よていの 50% → ★1（+${C.STAR_BONUS[1]}G）、80% → ★2（+${C.STAR_BONUS[2]}G）、100% → ★3 パーフェクト（+${C.STAR_BONUS[3]}G）</li>
+        <li>あしたの 計画を 立てる：+${C.PLAN_BONUS}G</li>
+        <li>れんぞく（★1いじょうの日が つづく）：${streakRules}</li>
+        <li>7日 れんぞくごとに 🎫おやすみチケット（さいだい${C.REST_TICKET_MAX}まい）。★0の日に じどうで つかって れんぞくを まもる</li>
+        <li>週ボス：HP${C.WEEK_BOSS_HP}。★1つで 1ダメージ。たおすと +${C.WEEK_BOSS_GOLD}G</li>
+        <li>タイマーで やった時間は RPGの けいけんちにも なるよ</li>
+        <li>できなかった コマは「↪ あした」で 次の日へ。ペナルティは なし！</li>
+      </ul>
+    </div>`;
+}
+
+// ---- きのうの けっか ----
+function showResults() {
+  const res = sch.pendingResults;
+  if (!res || modalOpen()) return;
+  mutate(s => { s.pendingResults = null; });
+  const lines = [];
+  for (const d of res.days.slice(-7)) {
+    lines.push(`${C.fmtJa(d.key)}　${d.noPlan ? '<span class="small">計画なし</span>' : `<span class="stars" style="font-size:18px">${stars(d.stars)}</span> ${d.doneCount}/${d.count} ・ ${d.actualMin}分`}`);
+  }
+  const extra = [];
+  if (res.streakAfter > 0) extra.push(`🔥 れんぞく <b>${res.streakAfter}日</b>！`);
+  else if (res.streakBefore > 0) extra.push('れんぞくは とぎれちゃった… でも だいじょうぶ！<br>きょうから また はじめよう 💪');
+  if (res.ticketsUsed) extra.push(`🎫 おやすみチケットで れんぞくを まもった！（${res.ticketsUsed}まい）`);
+  for (const r of res.streakRewards) extra.push(`🔥 ${r.days}日れんぞく ボーナス +${r.gold}G`);
+  if (res.ticketsGot) extra.push(`🎫 おやすみチケット +${res.ticketsGot}まい`);
+  if (res.stamps) extra.push(`📮 スタンプ +${res.stamps}`);
+  for (const g of res.chests) extra.push(`🎁 たからばこ！ +${g}G`);
+  for (const k of res.bossKills) extra.push(`👾 週ボス「${k.boss.name}」を たおした！ +${C.WEEK_BOSS_GOLD}G`);
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-bg"><div class="modal celebrate">
+      <div class="emoji">📜</div>
+      <div class="head">けっか はっぴょう</div>
+      <div class="title">${res.days.length > 1 ? 'これまでの けっか' : 'きのうの けっか'}</div>
+      ${lines.map(l => `<div class="line">${l}</div>`).join('')}
+      <hr>
+      ${extra.map(l => `<div class="line">${l}</div>`).join('')}
+      <div class="confirm-btns"><button class="btn-primary" id="res-ok">よし！ きょうも がんばる</button></div>
+    </div></div>`;
+  document.getElementById('res-ok').onclick = () => { closeModal(); render(); };
+}
+
+// ---- 操作 ----
+document.getElementById('app').addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const id = el.dataset.id;
+  switch (el.dataset.act) {
+    case 'rpg': location.href = 'index.html'; break;
+    case 'tab': ui.tab = el.dataset.tab; ui.tplType = null; render(); window.scrollTo(0, 0); break;
+    case 'toggle': toggleDone(id); break;
+    case 'start': startTimer(id); break;
+    case 'carry': carryBlock(id); break;
+    case 'goplan': ui.tab = 'plan'; ui.planKey = el.dataset.key; render(); window.scrollTo(0, 0); break;
+    case 'plankey': ui.planKey = el.dataset.key; render(); break;
+    case 'daytype': mutate(s => { C.ensureDay(s, planKey()).type = el.dataset.type; }); render(); break;
+    case 'loadtpl': loadTemplate(); break;
+    case 'savetpl': saveAsTemplate(); break;
+    case 'add': addBlock(el.dataset.task); break;
+    case 'edit': openEdit(id); break;
+    case 'smode': ui.statsMode = el.dataset.mode; render(); break;
+    case 'snav': statsNav(Number(el.dataset.dir)); break;
+    case 'jukuday': {
+      const d = Number(el.dataset.dow);
+      mutate(s => { s.jukuDays = s.jukuDays.includes(d) ? s.jukuDays.filter(x => x !== d) : [...s.jukuDays, d]; });
+      render();
+      break;
+    }
+    case 'tpl': ui.tplType = ui.tplType === el.dataset.type ? null : el.dataset.type; render(); break;
+  }
+});
+document.getElementById('app').addEventListener('input', e => {
+  if (e.target.dataset.act !== 'goal') return;
+  const v = e.target.value.slice(0, 40);
+  mutate(s => { C.ensureDay(s, planKey()).goal = v; });
+});
+
+// 別タブ・RPG側での変更、日付またぎに追従
+function refresh() {
+  sch = C.load();
+  mutate(s => C.settle(s));
+  if (!modalOpen()) render();
+  showResults();
+}
+window.addEventListener('storage', e => {
+  if (e.key === C.KEY || e.key === MAIN_KEY) { sch = C.load(); if (!modalOpen()) render(); }
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+
+// ---- 起動 ----
+(() => {
+  const p = new URLSearchParams(location.search);
+  if (p.get('tab')) ui.tab = p.get('tab');
+  if (p.get('date')) ui.planKey = p.get('date');
+  if (p.toString()) history.replaceState(null, '', location.pathname);
+  // 初回は サンプルの テンプレートを保存しておく
+  if (!localStorage.getItem(C.KEY)) C.save(sch);
+  refresh();
+})();
+</script>
+</body>
+</html>

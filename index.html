@@ -861,6 +861,7 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
     <img src="images/hero-social.png" alt="社会の勇者">
   </div>
   <button id="btn-start-game">▶ 勉強をスタート</button>
+  <button id="title-schedule" class="title-bgm" style="color:var(--dq-yellow); border-color:var(--dq-yellow);">📅 スケジュール</button>
   <button id="title-bgm-toggle" class="title-bgm">🔇 BGM OFF</button>
   <div class="title-stats">
     <div class="row"><span>ゆうしゃ</span><span class="v" id="title-name">ゆうしゃ</span></div>
@@ -922,6 +923,7 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
   </div>
   <div class="row mt12">
     <button id="btn-shop" class="btn-yellow" style="flex:1;">🛒 おみせ</button>
+    <button id="btn-schedule" class="btn-yellow" style="flex:1;">📅 スケジュール</button>
   </div>
   <div class="bgm-row">
     <button id="btn-bgm-toggle" class="bgm-on" style="min-width:120px;">🎵 BGM ON</button>
@@ -948,6 +950,7 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 
+<script src="schedule-core.js"></script>
 <script>
 'use strict';
 
@@ -1368,6 +1371,7 @@ function defaultState() {
     version: 2,
     hero:    { name: 'ゆうしゃ' },
     gold:    0,
+    schedGoldClaimed: 0, // スケジュールの ledger のうち、ゴールドとして受け取りずみの額
     subjects: {
       math:     { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0, milestones: [] },
       japanese: { totalMin: 0, bankedSec: 0, defeated: [], bonusExp: 0, milestones: [] },
@@ -1915,6 +1919,13 @@ function showEndDay() {
     </div>
   `).join('');
 
+  // スケジュール：きょうの★と、あしたの計画への入口（夜に計画を立てる流れ）
+  const sch = SchCore.load();
+  const schToday = sch.days[SchCore.today()];
+  const schSt = SchCore.studyBlocks(schToday).length ? SchCore.stats(schToday) : null;
+  const tomorrow = SchCore.addDays(SchCore.today(), 1);
+  const tomorrowPlanned = SchCore.studyBlocks(sch.days[tomorrow]).length > 0;
+
   const root = document.getElementById('modal-root');
   root.innerHTML = `
     <div class="modal-bg">
@@ -1930,6 +1941,16 @@ function showEndDay() {
             <span class="value">${totalMin}分 (${fmtDuration(totalMin*60)})</span>
           </div>
         </div>
+        <div class="collection-section">
+          <div class="section-title">📅 きょうの クエスト</div>
+          ${schSt
+            ? `<div style="font-size:24px; color:var(--dq-yellow);">${'★'.repeat(schSt.stars)}${'☆'.repeat(3 - schSt.stars)}</div>
+               <div>${schSt.doneCount} / ${schSt.count} クリア（${Math.round(schSt.rate * 100)}%）</div>`
+            : '<div class="small">きょうは 計画なし</div>'}
+          <button class="btn-yellow" id="end-plan" style="width:100%; margin-top:10px;">
+            📝 あしたの計画を ${tomorrowPlanned ? 'みなおす' : `立てる（+${SchCore.PLAN_BONUS}G）`}
+          </button>
+        </div>
         <div class="confirm-btns">
           <button class="btn-yellow" id="end-close" style="flex:1;">おやすみ 🌙</button>
         </div>
@@ -1937,6 +1958,7 @@ function showEndDay() {
     </div>
   `;
   document.getElementById('end-close').onclick = showTitleScreen;
+  document.getElementById('end-plan').onclick = () => goSchedule(`?tab=plan&date=${tomorrow}`);
 }
 
 // ============================================================
@@ -2168,6 +2190,7 @@ const T = {
   sessionMs: 0,          // セッション開始からの累積勉強時間ms (端数も含む)
   intervalId: null,
   lastTickAt: 0,
+  sched: null,           // スケジュールのコマから始めた時 { date, blockId, label }
 };
 
 const SESSION_CAP_MS = 40 * 60 * 1000; // 1セッションは最大40分で自動ストップ
@@ -2225,14 +2248,21 @@ function tStop() {
     state.history.lastStudyAt = Date.now();
     state.history.lastSessionSec = Math.floor(T.sessionMs / 1000);
   }
+  // スケジュールのコマから始めていたら、じっさいの時間をそのコマに記録
+  const schedRef = T.sched;
+  if (schedRef) {
+    const sec = Math.floor(T.sessionMs / 1000);
+    SchCore.update(s => SchCore.addActual(s, schedRef.date, schedRef.blockId, sec));
+  }
   saveState();
   if (T.intervalId) clearInterval(T.intervalId);
   T.running = false; T.paused = false; T.subject = null;
   T.segStartedAt = null; T.bankedMs = 0; T.sessionMs = 0;
-  T.intervalId = null; T.lastTickAt = 0;
+  T.intervalId = null; T.lastTickAt = 0; T.sched = null;
   stopBattleLoop();
   stopBgm();
   render();
+  return schedRef;
 }
 
 // 現在 running 区間の経過分を経験値に反映 + sessionMs を更新
@@ -2280,8 +2310,103 @@ function maybeAutoStop() {
 }
 
 function autoStopSession() {
-  tStop();
+  const ref = tStop();
   showToast('⏰ 40分 たったよ！\nじどうで ストップしたよ。\nつづける ときは また スタートしてね！');
+  askSchedComplete(ref);
+}
+
+// ============================================================
+// 📅 スケジュール連携（画面は schedule.html。ここではタイマーとゴールド受け取りだけ）
+// ============================================================
+
+function goSchedule(query = '') {
+  if (T.running || T.paused) tStop();
+  location.href = 'schedule.html' + query;
+}
+
+// スケジュールで得たゴールド（ledger）の未受け取り分をゴールドに反映
+function claimSchedGold() {
+  const ledger = SchCore.load().ledger || 0;
+  const delta = ledger - (state.schedGoldClaimed || 0);
+  if (!delta) return 0;
+  state.gold = Math.max(0, state.gold + delta);
+  state.schedGoldClaimed = ledger;
+  saveState();
+  return delta;
+}
+
+// schedule.html の「▶ タイマー」から来たら、そのコマの教科でタイマー開始
+function startFromSchedParam() {
+  const p = new URLSearchParams(location.search).get('sched');
+  if (!p) return false;
+  history.replaceState(null, '', location.pathname);
+  const [date, blockId] = p.split('|');
+  const { b } = SchCore.findBlock(SchCore.load(), date, blockId);
+  if (!b || b.done) return false;
+  const t = SchCore.task(b.task);
+  if (!t.subj) return false;
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('game-screen').classList.remove('hidden');
+  T.sched = { date, blockId, label: `${t.emoji} ${t.name}（よてい ${b.dur}分）` };
+  tStart(t.subj);
+  window.scrollTo(0, 0);
+  showToast(`📅 ${t.name} スタート！\nがんばれ！`);
+  return true;
+}
+
+function askSchedComplete(ref) {
+  if (!ref) return;
+  const { b } = SchCore.findBlock(SchCore.load(), ref.date, ref.blockId);
+  if (!b || b.done || ref.date !== SchCore.today()) return;
+  const t = SchCore.task(b.task);
+  const actual = Math.round((b.actualSec || 0) / 60);
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="text-align:center; max-width:460px;">
+        <div class="panel-title">▼ 📅 スケジュール</div>
+        <div style="font-size:22px; margin:10px 0;">${t.emoji} ${escapeHtml(t.name)}</div>
+        <div>よてい ${b.dur}分 ／ これまで ${actual}分</div>
+        <div style="margin:10px 0; color:var(--dq-yellow);">この コマを クリアにする？</div>
+        <div class="confirm-btns" style="flex-direction:column;">
+          <button class="btn-green" id="sc-done">✅ クリア！（+${SchCore.points(b)}G）</button>
+          <button class="btn-yellow" id="sc-more">▶ まだ つづける</button>
+          <button id="sc-later">あとで</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('sc-done').onclick = () => {
+    closeModal();
+    const { r } = SchCore.update(s => SchCore.markDone(s, ref.date, ref.blockId, 'timer'));
+    claimSchedGold();
+    render();
+    if (!r) return;
+    const lines = [`+${r.pts}G`];
+    if (r.after > r.before) lines.push(`${'★'.repeat(r.after)} たっせい！ +${r.starGold}G`);
+    root.innerHTML = `
+      <div class="modal-bg">
+        <div class="modal milestone-modal">
+          <div class="milestone-emoji">${r.after === 3 && r.before < 3 ? '🎉' : '✅'}</div>
+          <div class="milestone-head">${r.after === 3 && r.before < 3 ? 'パーフェクト！' : 'クエスト クリア！'}</div>
+          <div class="milestone-title">${escapeHtml(t.name)}</div>
+          ${lines.map(l => `<div class="milestone-gold">${l}</div>`).join('')}
+          <div class="confirm-btns">
+            <button class="btn-yellow" id="sc-go">📅 スケジュールへ</button>
+            <button id="sc-close">とじる</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('sc-go').onclick = () => goSchedule();
+    document.getElementById('sc-close').onclick = closeModal;
+  };
+  document.getElementById('sc-more').onclick = () => {
+    closeModal();
+    T.sched = { date: ref.date, blockId: ref.blockId, label: ref.label };
+    tStart(t.subj);
+  };
+  document.getElementById('sc-later').onclick = closeModal;
 }
 
 // ============================================================
@@ -2359,6 +2484,7 @@ function renderTimerArea() {
   root.innerHTML = `
     <div class="panel" style="border-color: var(--dq-yellow);">
       <div class="panel-title">▼ ${name}を 勉強中  (${status})</div>
+      ${T.sched ? `<div class="small" style="color:var(--dq-blue);">📅 スケジュール：${escapeHtml(T.sched.label)}</div>` : ''}
       <div class="battle-scene${T.subject === 'review' ? ' battle-review' : ''}" id="battle-scene">
         ${T.subject === 'review' ? `
           ${info.heroImage
@@ -2387,7 +2513,7 @@ function renderTimerArea() {
   `;
   document.getElementById('t-pause')?.addEventListener('click', tPause);
   document.getElementById('t-resume')?.addEventListener('click', tResume);
-  document.getElementById('t-stop')?.addEventListener('click', tStop);
+  document.getElementById('t-stop')?.addEventListener('click', () => askSchedComplete(tStop()));
 }
 
 function updateTimerNumbers() {
@@ -2663,7 +2789,7 @@ function renderSubjectCard(subj) {
   const reviewClass = subj === 'review' ? ' review' : '';
   const bgmOn = state.bgm?.subjects?.[subj] !== false;
   const reviewBanner = subj === 'review'
-    ? `<div class="review-banner">✨ けいけんち2倍 / ゴールド2倍 ✨</div>`
+    ? `<div class="review-banner">✨ けいけんち1.5倍 / ゴールド1.5倍 ✨</div>`
     : '';
   return `
     <div class="subject${studyingClass}${reviewClass}" id="sub-${subj}">
@@ -3145,6 +3271,7 @@ document.getElementById('btn-items').addEventListener('click', showCollection);
 document.getElementById('btn-review').addEventListener('click', showReflection);
 document.getElementById('btn-back-title').addEventListener('click', showTitleScreen);
 document.getElementById('btn-shop').addEventListener('click', showShop);
+document.getElementById('btn-schedule').addEventListener('click', () => goSchedule());
 
 document.getElementById('btn-bgm-toggle').addEventListener('click', () => {
   setBgmEnabled(!state.bgm.enabled);
@@ -3338,10 +3465,12 @@ document.getElementById('btn-reset').addEventListener('click', () => {
     'レベル・けいけんち・ゴールド・たおしたボスが すべて 消えます。\n本当に リセットしますか？',
     () => {
       state = defaultState();
+      // スケジュール側で過去に得たゴールドを、リセット後にもう一度受け取らないように
+      state.schedGoldClaimed = SchCore.load().ledger || 0;
       saveState();
       // タイマーも停止
       if (T.intervalId) clearInterval(T.intervalId);
-      T.running = false; T.paused = false; T.subject = null;
+      T.running = false; T.paused = false; T.subject = null; T.sched = null;
       T.segStartedAt = null; T.bankedMs = 0; T.sessionMs = 0;
       T.intervalId = null;
       showToast('リセットしました');
@@ -3391,16 +3520,36 @@ window.addEventListener('pageshow', (e) => {
 // ============================================================
 
 document.getElementById('btn-start-game').addEventListener('click', startGame);
+document.getElementById('title-schedule').addEventListener('click', () => goSchedule());
 document.getElementById('title-bgm-toggle').addEventListener('click', () => {
   setBgmEnabled(!state.bgm.enabled);
+});
+
+// スケジュール：日のしめ（れんぞく・週ボス等）→ 得たゴールドを受け取る
+function syncSchedule() {
+  SchCore.update(s => SchCore.settle(s));
+  const gained = claimSchedGold();
+  if (gained > 0) showToast(`📅 スケジュールの ほうしゅう\n+${gained}G`, { trophy: true });
+  if (SchCore.load().pendingResults) showToast('📜 きのうの けっかが でたよ！\n「📅 スケジュール」で 見てね');
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  syncSchedule();
+  if (!document.getElementById('game-screen').classList.contains('hidden')) render();
+  else refreshTitleStats();
+});
+window.addEventListener('storage', e => {
+  if (e.key !== SchCore.KEY) return;
+  if (claimSchedGold() && !document.getElementById('game-screen').classList.contains('hidden')) render();
 });
 
 // すでに到達ずみの称号を静かに付与してから起動
 backfillMilestones();
 saveState();
 
-// タイトル画面で起動
-showTitleScreen();
+// スケジュールの「▶ タイマー」から来たらゲーム画面でタイマー開始、それ以外はタイトル画面
+if (!startFromSchedParam()) showTitleScreen();
+syncSchedule();
 </script>
 
 </body>
