@@ -5,7 +5,7 @@
 // RPG 側は勉強中に何度もセーブするので、こちらから本体のキーに直接書くと上書きし合ってゴールドが消えるため。
 const SchCore = (() => {
   // このファイルを変えたら上げる。schedule.html / index.html の CORE_VERSION と script の ?v= も同じ値に
-  const VERSION = 4;
+  const VERSION = 5;
   const KEY = 'study-rpg-schedule-v1';
 
   const SUBJ = {
@@ -33,7 +33,9 @@ const SchCore = (() => {
     { id: 'rika_anki',   name: '理科暗記',          emoji: '🧪', subj: 'science',  def: 20 },
     { id: 'shakai_anki', name: '社会暗記',          emoji: '🗾', subj: 'social',   def: 20 },
     { id: 'school',      name: '学校',              emoji: '🎒', subj: null, def: 60 },
+    { id: 'homework',    name: '宿題',              emoji: '📒', subj: null, def: 30 },
     { id: 'juku',        name: '塾',                emoji: '🏫', subj: null, def: 180 },
+    { id: 'lesson',      name: '習い事',            emoji: '🎨', subj: null, def: 60 },
     { id: 'meal',        name: 'ごはん',            emoji: '🍚', subj: null, def: 30 },
     { id: 'bath',        name: 'おふろ',            emoji: '🛁', subj: null, def: 30 },
     { id: 'rest',        name: 'きゅうけい',        emoji: '☕', subj: null, def: 10 },

@@ -950,13 +950,13 @@ button.bgm-off { color: var(--dq-dim);   border-color: var(--dq-dim); }
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 
-<script src="schedule-core.js?v=4"></script>
+<script src="schedule-core.js?v=5"></script>
 <script>
 'use strict';
 
 // GitHub Pages はファイルごとに最大10分キャッシュされ、このページと schedule-core.js の版がずれることがある。
 // ずれていたら1回だけキャッシュを避けて読み直す（?sched= などの引数は残す）
-const CORE_VERSION = 4;
+const CORE_VERSION = 5;
 (() => {
   let reloaded = false;
   try { reloaded = sessionStorage.getItem('rpg-core-reload') === '1'; } catch (e) {}
