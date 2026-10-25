@@ -151,6 +151,9 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .sumchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .sumchip { --c: #94a3b8; border: 1px solid var(--c); color: var(--c); background: var(--surface); border-radius: 12px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
 .empty { text-align: center; padding: 20px 8px; color: var(--muted); }
+.band-head { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px dashed var(--border-strong); font-size: 15px; font-weight: 700; color: var(--text-2); }
+.band-head .rem { font-size: 13px; font-weight: 400; color: var(--muted); }
+.band-empty { font-size: 13px; color: var(--muted); padding: 6px 2px; }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .btns > button { flex: 1; }
 
@@ -197,11 +200,11 @@ hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 
-<script src="schedule-core.js?v=2"></script>
+<script src="schedule-core.js?v=3"></script>
 <script>
 // 公開サーバー(GitHub Pages)はファイルごとに最大10分キャッシュされ、このページと schedule-core.js の版がずれることがある。
 // ずれたままだと無い関数を呼んでボタンが反応しなくなるので、1回だけキャッシュを避けて読み直す
-const CORE_VERSION = 2;
+const CORE_VERSION = 3;
 (() => {
   let reloaded = false;
   try { reloaded = sessionStorage.getItem('sch-core-reload') === '1'; } catch (e) {}
@@ -224,7 +227,7 @@ const MAIN_KEY = 'study-rpg-v1';
 const DURS = [10, 15, 20, 30, 40, 60, 90, 120, 180];
 
 let sch = C.load();
-const ui = { tab: 'today', planKey: null, tplType: null, statsMode: 'week', statsAnchor: null, lastDoneId: null, lastAddedId: null };
+const ui = { tab: 'today', planKey: null, tplType: null, addBand: null, statsMode: 'week', statsAnchor: null, lastDoneId: null, lastAddedId: null };
 
 // ---- RPG本体のセーブは読むだけ（名前とゴールド表示用） ----
 function mainState() {
@@ -426,25 +429,47 @@ function renderPlan() {
       ${bonus}
       ${lockNote}
     </div>
-    ${renderEditor(day.blocks, false)}`;
+    ${renderEditor(day.blocks, false, day.type)}`;
 }
 
-function renderEditor(blocks, isTpl) {
+function renderEditor(blocks, isTpl, type) {
   const sorted = [...blocks].sort((a, b) => a.start - b.start);
   const overlap = new Set();
   for (let i = 1; i < sorted.length; i++) {
     if (sorted[i].start < sorted[i - 1].start + sorted[i - 1].dur) { overlap.add(sorted[i].id); overlap.add(sorted[i - 1].id); }
   }
-  const rows = sorted.length ? sorted.map(b => {
+  const bands = C.DAY_TYPES[type].bands;
+  const row = b => {
     const t = C.task(b.task);
-    const cls = ['block', 'editable', t.subj ? '' : 'nonstudy', overlap.has(b.id) ? 'overlap' : '', ui.lastAddedId === b.id ? 'new' : '', b.done ? 'done' : ''].join(' ');
+    const bd = bands && bands.find(x => b.start >= x.from && b.start < x.to);
+    const over = bd && b.start + b.dur > bd.to;
+    const cls = ['block', 'editable', t.subj ? '' : 'nonstudy', overlap.has(b.id) || over ? 'overlap' : '', ui.lastAddedId === b.id ? 'new' : '', b.done ? 'done' : ''].join(' ');
     return `
       <div class="${cls}" style="--c:${C.color(b.task)}" data-act="edit" data-id="${b.id}">
         <div class="time">${C.hm(b.start)}〜${C.hm(b.start + b.dur)}</div>
-        <div class="name">${t.emoji} ${t.name}<span class="sub">${b.dur}分${overlap.has(b.id) ? ' ・ ⚠ 時間が かさなってる' : ''}${b.done ? ' ・ ✔ クリアずみ' : ''}${!isTpl && C.isLocked(planKey(), b) ? ' ・ 🔒' : ''}</span></div>
+        <div class="name">${t.emoji} ${t.name}<span class="sub">${b.dur}分${overlap.has(b.id) ? ' ・ ⚠ 時間が かさなってる' : ''}${over ? ` ・ ⚠ ${bd.name}の 時間（〜${C.hm(bd.to)}）を こえてる` : ''}${b.done ? ' ・ ✔ クリアずみ' : ''}${!isTpl && C.isLocked(planKey(), b) ? ' ・ 🔒' : ''}</span></div>
         <div class="small">✏</div>
       </div>`;
-  }).join('') : '<div class="empty">まだ コマが ないよ。下の ボタンで 追加しよう！</div>';
+  };
+  let rows;
+  if (bands) {
+    // 時間帯ごとにまとめて表示。どの時間帯にも入らないコマは最後に
+    const inAny = b => bands.some(bd => b.start >= bd.from && b.start < bd.to);
+    rows = bands.map(bd => {
+      const items = sorted.filter(b => b.start >= bd.from && b.start < bd.to);
+      return `
+        <div class="band-head"><span>${bd.emoji} ${bd.name} ${C.hm(bd.from)}〜${C.hm(bd.to)}</span><span class="rem">のこり ${C.bandRemaining(blocks, bd)}分</span></div>
+        ${items.length ? items.map(row).join('') : '<div class="band-empty">まだ コマなし</div>'}`;
+    }).join('');
+    const others = sorted.filter(b => !inAny(b));
+    if (others.length) rows += `<div class="band-head"><span>⏰ そのほかの 時間</span></div>${others.map(row).join('')}`;
+  } else {
+    rows = sorted.length ? sorted.map(row).join('') : '<div class="empty">まだ コマが ないよ。下の ボタンで 追加しよう！</div>';
+  }
+  const bandPicker = bands ? `
+      <div class="label">どの 時間帯に 入れる？</div>
+      <div class="seg">${bands.map((bd, i) =>
+        `<button data-act="addband" data-i="${i}" class="${i === addBandIndex(blocks, bands) ? 'on' : ''}">${bd.emoji} ${bd.name}（のこり ${C.bandRemaining(blocks, bd)}分）</button>`).join('')}</div>` : '';
 
   const bySubj = {};
   let total = 0;
@@ -467,6 +492,7 @@ function renderEditor(blocks, isTpl) {
     </div>
     <div class="panel">
       <div class="panel-title">▼ ＋ コマを 追加</div>
+      ${bandPicker}
       <div class="label">📚 勉強</div>
       <div class="palette">${palette(true)}</div>
       <div class="label">🕒 そのほかの よてい（ポイントなし）</div>
@@ -493,16 +519,33 @@ function editBlocks(fn) {
 function currentType() {
   return isTplMode() ? ui.tplType : viewDay(planKey()).type;
 }
+// コマを足す時間帯。えらんでいなければ、のこり時間がある最初の時間帯
+function addBandIndex(blocks, bands) {
+  if (ui.addBand != null && ui.addBand < bands.length) return ui.addBand;
+  const i = bands.findIndex(bd => C.bandRemaining(blocks, bd) >= 10);
+  return i >= 0 ? i : bands.length - 1;
+}
 function addBlock(taskId) {
   const t = C.task(taskId);
+  const bands = C.DAY_TYPES[currentType()].bands;
+  let overflow = null;
   editBlocks(blocks => {
-    const end = blocks.reduce((m, b) => Math.max(m, b.start + b.dur), 0);
     const dur = t.def || 30;
-    const start = Math.min(end || (currentType() === 'holiday' ? 480 : 960), 1440 - dur);
+    let start;
+    if (bands) {
+      // えらんだ時間帯の、いちばん後ろのコマのつづきに入れる
+      const bd = bands[addBandIndex(blocks, bands)];
+      start = C.bandBlocks(blocks, bd).reduce((m, b) => Math.max(m, b.start + b.dur), bd.from);
+      if (start + dur > bd.to) overflow = bd;
+    } else {
+      start = blocks.reduce((m, b) => Math.max(m, b.start + b.dur), 0) || 480;
+    }
+    start = Math.min(start, 1440 - dur);
     const nb = { id: C.newId(), task: taskId, start, dur, done: false, via: null, actualSec: 0, createdOn: C.today() };
     blocks.push(nb);
     ui.lastAddedId = nb.id;
   });
+  if (overflow) showToast(`⚠ ${overflow.name}の 時間（〜${C.hm(overflow.to)}）を こえたよ\nコマを タップして 時間を ちょうせいしてね`);
 }
 function openEdit(id) {
   const blocks = targetBlocks(C.load());
@@ -738,7 +781,7 @@ function renderSettings() {
         `<button data-act="tpl" data-type="${k}" class="${ui.tplType === k ? 'on' : ''}">${v.emoji} ${v.name}</button>`).join('')}</div>
       <div class="small mt8">月〜金は「平日」、土日は「休日」が じどうで えらばれるよ（祝日は 計画のときに 切りかえてね）。塾の日は 平日の計画に「🏫 塾」の コマを 入れよう</div>
     </div>
-    ${ui.tplType ? renderEditor(sch.templates[ui.tplType], true) : ''}
+    ${ui.tplType ? renderEditor(sch.templates[ui.tplType], true, ui.tplType) : ''}
     <div class="panel">
       <div class="panel-title">▼ 📮 スタンプカード（★1いじょうの日に 1こ）</div>
       <div class="stamps">${slots}</div>
@@ -809,6 +852,7 @@ document.getElementById('app').addEventListener('click', e => {
     case 'loadtpl': loadTemplate(); break;
     case 'savetpl': saveAsTemplate(); break;
     case 'add': addBlock(el.dataset.task); break;
+    case 'addband': ui.addBand = Number(el.dataset.i); render(); break;
     case 'edit': openEdit(id); break;
     case 'smode': ui.statsMode = el.dataset.mode; render(); break;
     case 'snav': statsNav(Number(el.dataset.dir)); break;

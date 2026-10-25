@@ -5,7 +5,7 @@
 // RPG 側は勉強中に何度もセーブするので、こちらから本体のキーに直接書くと上書きし合ってゴールドが消えるため。
 const SchCore = (() => {
   // このファイルを変えたら上げる。schedule.html / index.html の CORE_VERSION と script の ?v= も同じ値に
-  const VERSION = 2;
+  const VERSION = 3;
   const KEY = 'study-rpg-schedule-v1';
 
   const SUBJ = {
@@ -41,9 +41,13 @@ const SchCore = (() => {
   ];
   const TASK_MAP = Object.fromEntries(TASKS.map(t => [t.id, t]));
 
+  // bands = 計画を立てる目安の時間帯（分）。コマを足すとこの中に並ぶ。外に動かすこともできる
   const DAY_TYPES = {
-    weekday: { name: '平日', emoji: '🏫' },
-    holiday: { name: '休日', emoji: '🌈' },
+    weekday: { name: '平日', emoji: '🏫', bands: [
+      { from: 360, to: 435,  name: '朝',   emoji: '🌅' },   // 6:00〜7:15
+      { from: 990, to: 1260, name: '夕方', emoji: '🌙' },   // 16:30〜21:00
+    ] },
+    holiday: { name: '休日', emoji: '🌈', bands: null },
   };
 
   const STAR_BONUS = [0, 30, 80, 200];        // ★0〜★3 の日ボーナス
@@ -64,13 +68,9 @@ const SchCore = (() => {
   ];
 
   // サンプル（最初の1回だけ入る。親子で直して使う前提）。勉強コマは40分以内＝タイマーの自動ストップと合わせる
+  // 平日は空（親子で時間帯の中に入れていく）
   const SAMPLE_TEMPLATES = {
-    weekday: [
-      ['keisan', 960, 15], ['kanji', 975, 15], ['rest', 990, 15],
-      ['yoshu_m', 1005, 40], ['free', 1045, 65], ['meal', 1110, 30],
-      ['yoshu_j', 1140, 40], ['rest', 1180, 10], ['rika_anki', 1190, 20],
-      ['bath', 1210, 30], ['free', 1240, 40],
-    ],
+    weekday: [],
     holiday: [
       ['keisan', 480, 15], ['kanji', 495, 15], ['testnaoshi', 540, 40],
       ['rest', 580, 20], ['ensyu_m', 600, 40], ['free', 640, 80],
@@ -79,6 +79,13 @@ const SchCore = (() => {
       ['meal', 1110, 30], ['bath', 1140, 30],
     ],
   };
+  // v2 までの平日サンプル（16:00〜）。手を付けていないまま残っていたら v3 で空にするための比較用
+  const OLD_WEEKDAY_SAMPLE = [
+    ['keisan', 960, 15], ['kanji', 975, 15], ['rest', 990, 15],
+    ['yoshu_m', 1005, 40], ['free', 1045, 65], ['meal', 1110, 30],
+    ['yoshu_j', 1140, 40], ['rest', 1180, 10], ['rika_anki', 1190, 20],
+    ['bath', 1210, 30], ['free', 1240, 40],
+  ];
 
   // ---- 日付 ----
   function pad2(n) { return String(n).padStart(2, '0'); }
@@ -105,7 +112,7 @@ const SchCore = (() => {
     const templates = {};
     for (const type of Object.keys(SAMPLE_TEMPLATES)) templates[type] = sampleTemplate(type);
     return {
-      version: 2,
+      version: 3,
       templates,
       days: {},              // 'YYYY-MM-DD': { type, goal, blocks[], paid, planBonus, settled, stars }
       streak: 0, bestStreak: 0, lastSettled: null,
@@ -140,7 +147,20 @@ const SchCore = (() => {
       delete s.jukuDays;
       s.version = 2;
     }
+    // v3: 平日は 6:00〜7:15／16:30〜21:00 の時間帯で組む。旧サンプル（16:00〜）のままなら空にする（直してあれば残す）
+    if (s.version < 3) {
+      const wk = s.templates.weekday || [];
+      const untouched = wk.length === OLD_WEEKDAY_SAMPLE.length &&
+        wk.every((b, i) => b.task === OLD_WEEKDAY_SAMPLE[i][0] && b.start === OLD_WEEKDAY_SAMPLE[i][1] && b.dur === OLD_WEEKDAY_SAMPLE[i][2]);
+      if (untouched) s.templates.weekday = [];
+      s.version = 3;
+    }
     return s;
+  }
+  // その時間帯に始まるコマと、のこり時間（分）
+  function bandBlocks(blocks, band) { return blocks.filter(b => b.start >= band.from && b.start < band.to); }
+  function bandRemaining(blocks, band) {
+    return Math.max(0, band.to - band.from - bandBlocks(blocks, band).reduce((n, b) => n + b.dur, 0));
   }
   function save(s) {
     try { localStorage.setItem(KEY, JSON.stringify(s)); return true; } catch (e) { return false; }
@@ -349,7 +369,7 @@ const SchCore = (() => {
     REST_TICKET_MAX, STAMPS_PER_CARD, WEEK_BOSS_HP, WEEK_BOSS_GOLD,
     pad2, keyOf, dateOf, today, addDays, weekStart, wdJa, fmtJa, hm,
     task, isStudy, color, newId,
-    load, save, update,
+    load, save, update, bandBlocks, bandRemaining,
     suggestType, newDay, ensureDay, studyBlocks, actualMin, points, stats, earned, syncDay,
     findBlock, markDone, undoDone, toggleOther, addActual, carry, isLocked, minDur, maybePlanBonus,
     weekBoss, settle, aggregate,
