@@ -162,8 +162,11 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 /* コマの編集 */
 .edit-time { font-size: 30px; font-weight: 700; text-align: center; color: var(--primary); font-feature-settings: "tnum"; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.grid5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-.grid5 button.on { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+.grid4 button.on { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+.dur-custom { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 15px; color: var(--text-2); }
+.dur-custom input { width: 96px; padding: 8px 10px; font-size: 20px; font-weight: 700; text-align: center; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font-family: inherit; user-select: text; -webkit-user-select: text; }
+.dur-custom input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+.dur-custom button { margin-left: auto; font-size: 15px; }
 
 /* ふりかえり */
 .bars .r { --c: #94a3b8; display: grid; grid-template-columns: 140px 1fr 128px; gap: 8px; align-items: center; font-size: 14px; margin: 6px 0; }
@@ -226,7 +229,8 @@ document.addEventListener('touchstart', () => {}, { passive: true });
 
 const C = SchCore;
 const MAIN_KEY = 'study-rpg-v1';
-const DURS = [10, 15, 20, 30, 40, 60, 90, 120, 180];
+const DURS = [10, 15, 20, 30, 40, 50, 60];
+const DUR_MIN = 1, DUR_MAX = 600; // じぶんで入れる長さの範囲（分）
 
 let sch = C.load();
 const ui = { tab: 'today', planKey: null, tplDow: null, planTplDow: null, addBand: null, statsMode: 'week', statsAnchor: null, lastDoneId: null, lastAddedId: null };
@@ -573,7 +577,13 @@ function openEdit(id) {
         <button data-mv="5">5分 ▶</button><button data-mv="30">30分 ▶▶</button>
       </div>
       <div class="label">じかんの 長さ${t.subj ? '（勉強は 40分までが おすすめ）' : ''}</div>
-      <div class="grid5">${DURS.map(d => `<button data-dur="${d}" class="${b.dur === d ? 'on' : ''}" ${locked && d < min ? 'disabled' : ''}>${d}分</button>`).join('')}</div>
+      <div class="grid4">${DURS.map(d => `<button data-dur="${d}" class="${b.dur === d ? 'on' : ''}" ${locked && d < min ? 'disabled' : ''}>${d}分</button>`).join('')}</div>
+      <div class="dur-custom">
+        <span>じぶんで 入れる</span>
+        <input type="number" id="ed-dur" inputmode="numeric" min="${locked ? min : DUR_MIN}" max="${DUR_MAX}" step="1" enterkeyhint="done" value="${b.dur}">
+        <span>分</span>
+        <button class="btn-primary" id="ed-dur-set">この長さに する</button>
+      </div>
       ${locked ? `<div class="lock-note">🔒 前の日に 決めた 勉強コマなので、けしたり ${min}分より 短くしたり できないよ</div>` : ''}
       <div class="confirm-btns">
         ${locked ? '' : '<button class="btn-danger" id="ed-del">🗑 けす</button>'}
@@ -583,17 +593,31 @@ function openEdit(id) {
   const change = fn => { editBlocks(bs => { const x = bs.find(y => y.id === id); if (x) fn(x); }); openEdit(id); };
   document.querySelectorAll('#modal-root [data-mv]').forEach(btn => btn.onclick = () =>
     change(x => { x.start = Math.max(0, Math.min(1440 - x.dur, x.start + Number(btn.dataset.mv))); }));
-  document.querySelectorAll('#modal-root [data-dur]').forEach(btn => btn.onclick = () =>
-    change(x => {
-      const d = Number(btn.dataset.dur);
-      if (locked) {
-        // 当日最初の変更時の長さを下限として覚えておく（のばした後に元へ戻すのはOK）
-        if (x.base == null) x.base = x.dur;
-        if (d < x.base) return;
-      }
-      x.dur = d;
-      if (x.start + x.dur > 1440) x.start = 1440 - x.dur;
-    }));
+  const setDur = d => change(x => {
+    if (locked) {
+      // 当日最初の変更時の長さを下限として覚えておく（のばした後に元へ戻すのはOK）
+      if (x.base == null) x.base = x.dur;
+      if (d < x.base) return;
+    }
+    x.dur = d;
+    if (x.start + x.dur > 1440) x.start = 1440 - x.dur;
+  });
+  document.querySelectorAll('#modal-root [data-dur]').forEach(btn => btn.onclick = () => setDur(Number(btn.dataset.dur)));
+  const input = document.getElementById('ed-dur');
+  const applyInput = () => {
+    const d = Number(input.value);
+    if (!Number.isInteger(d) || d < DUR_MIN || d > DUR_MAX) {
+      showToast(`${DUR_MIN}〜${DUR_MAX}分の 数字で 入れてね`);
+      return;
+    }
+    if (locked && d < min) {
+      showToast(`🔒 このコマは ${min}分より 短く できないよ`);
+      return;
+    }
+    setDur(d);
+  };
+  document.getElementById('ed-dur-set').onclick = applyInput;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyInput(); } });
   document.getElementById('ed-ok').onclick = closeModal;
   if (!locked) {
     document.getElementById('ed-del').onclick = () => {
