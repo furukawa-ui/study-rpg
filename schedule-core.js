@@ -5,7 +5,7 @@
 // RPG 側は勉強中に何度もセーブするので、こちらから本体のキーに直接書くと上書きし合ってゴールドが消えるため。
 const SchCore = (() => {
   // このファイルを変えたら上げる。schedule.html / index.html の CORE_VERSION と script の ?v= も同じ値に
-  const VERSION = 3;
+  const VERSION = 4;
   const KEY = 'study-rpg-schedule-v1';
 
   const SUBJ = {
@@ -104,15 +104,22 @@ const SchCore = (() => {
   function color(id) { const t = task(id); return t.subj ? SUBJ[t.subj].color : NONSTUDY_COLOR; }
   function newId() { return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
+  // ---- テンプレート（曜日ごと。キーは 0=日〜6=土）----
+  const DOW_JA = '日月火水木金土';
+  const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  function isWeekendDow(dow) { return dow === 0 || dow === 6; }
+  // テンプレート編集時の時間帯（月〜金は平日の時間帯、土日はなし）
+  function tplBands(dow) { return isWeekendDow(Number(dow)) ? null : DAY_TYPES.weekday.bands; }
+
   // ---- 保存 ----
   function sampleTemplate(type) {
     return SAMPLE_TEMPLATES[type].map(([t, start, dur]) => ({ id: newId(), task: t, start, dur }));
   }
   function defaultSch() {
     const templates = {};
-    for (const type of Object.keys(SAMPLE_TEMPLATES)) templates[type] = sampleTemplate(type);
+    for (let d = 0; d < 7; d++) templates[d] = sampleTemplate(isWeekendDow(d) ? 'holiday' : 'weekday');
     return {
-      version: 3,
+      version: 4,
       templates,
       days: {},              // 'YYYY-MM-DD': { type, goal, blocks[], paid, planBonus, settled, stars }
       streak: 0, bestStreak: 0, lastSettled: null,
@@ -154,6 +161,18 @@ const SchCore = (() => {
         wk.every((b, i) => b.task === OLD_WEEKDAY_SAMPLE[i][0] && b.start === OLD_WEEKDAY_SAMPLE[i][1] && b.dur === OLD_WEEKDAY_SAMPLE[i][2]);
       if (untouched) s.templates.weekday = [];
       s.version = 3;
+    }
+    // v4: テンプレートを「平日／休日」→ 曜日ごと（月〜日）に。平日は月〜金へ、休日は土日へコピー
+    if (s.version < 4) {
+      const t = s.templates || {};
+      const wk = t.weekday || [];
+      const hol = t.holiday || sampleTemplate('holiday');
+      // id はコピー元のまま（1つのテンプレート内で重ならなければよい。読むたびに変わらないように）
+      const copy = rows => rows.map(b => ({ id: b.id || newId(), task: b.task, start: b.start, dur: b.dur }));
+      const next = {};
+      for (let d = 0; d < 7; d++) next[d] = copy(isWeekendDow(d) ? hol : wk);
+      s.templates = next;
+      s.version = 4;
     }
     return s;
   }
@@ -369,6 +388,7 @@ const SchCore = (() => {
     REST_TICKET_MAX, STAMPS_PER_CARD, WEEK_BOSS_HP, WEEK_BOSS_GOLD,
     pad2, keyOf, dateOf, today, addDays, weekStart, wdJa, fmtJa, hm,
     task, isStudy, color, newId,
+    DOW_JA, DOW_ORDER, tplBands,
     load, save, update, bandBlocks, bandRemaining,
     suggestType, newDay, ensureDay, studyBlocks, actualMin, points, stats, earned, syncDay,
     findBlock, markDone, undoDone, toggleOther, addActual, carry, isLocked, minDur, maybePlanBonus,

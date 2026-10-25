@@ -153,6 +153,8 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .empty { text-align: center; padding: 20px 8px; color: var(--muted); }
 .band-head { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px dashed var(--border-strong); font-size: 15px; font-weight: 700; color: var(--text-2); }
 .band-head .rem { font-size: 13px; font-weight: 400; color: var(--muted); }
+.seg.dow7 button { flex: 1 0 0; min-width: 0; padding: 10px 0; }
+.seg.dow7 .cnt { display: block; font-size: 11px; font-weight: 400; opacity: .75; }
 .band-empty { font-size: 13px; color: var(--muted); padding: 6px 2px; }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .btns > button { flex: 1; }
@@ -200,11 +202,11 @@ hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 
-<script src="schedule-core.js?v=3"></script>
+<script src="schedule-core.js?v=4"></script>
 <script>
 // 公開サーバー(GitHub Pages)はファイルごとに最大10分キャッシュされ、このページと schedule-core.js の版がずれることがある。
 // ずれたままだと無い関数を呼んでボタンが反応しなくなるので、1回だけキャッシュを避けて読み直す
-const CORE_VERSION = 3;
+const CORE_VERSION = 4;
 (() => {
   let reloaded = false;
   try { reloaded = sessionStorage.getItem('sch-core-reload') === '1'; } catch (e) {}
@@ -227,7 +229,7 @@ const MAIN_KEY = 'study-rpg-v1';
 const DURS = [10, 15, 20, 30, 40, 60, 90, 120, 180];
 
 let sch = C.load();
-const ui = { tab: 'today', planKey: null, tplType: null, addBand: null, statsMode: 'week', statsAnchor: null, lastDoneId: null, lastAddedId: null };
+const ui = { tab: 'today', planKey: null, tplDow: null, planTplDow: null, addBand: null, statsMode: 'week', statsAnchor: null, lastDoneId: null, lastAddedId: null };
 
 // ---- RPG本体のセーブは読むだけ（名前とゴールド表示用） ----
 function mainState() {
@@ -396,7 +398,9 @@ function planKey() {
   const t = C.today();
   return ui.planKey && ui.planKey >= t ? ui.planKey : C.addDays(t, 1);
 }
-function isTplMode() { return ui.tab === 'settings' && !!ui.tplType; }
+function isTplMode() { return ui.tab === 'settings' && ui.tplDow != null; }
+// 計画画面で読みこみ/保存に使うテンプレートの曜日（えらんでいなければ、その日の曜日）
+function planTplDow(key) { return ui.planTplDow != null ? ui.planTplDow : C.dateOf(key).getDay(); }
 function viewDay(key) { return sch.days[key] || C.newDay(sch, key); }
 
 function renderPlan() {
@@ -411,6 +415,7 @@ function renderPlan() {
       : `<div class="small mt8" style="color:var(--gold)">📝 勉強のコマを 1つ以上 入れると 計画ボーナス +${C.PLAN_BONUS}G</div>`;
   }
   const hasLocked = day.blocks.some(b => C.isLocked(key, b));
+  const tplDow = planTplDow(key);
   const lockNote = hasLocked
     ? '<div class="lock-note">🔒 前の日に 決めた 勉強コマは、きょうは 消したり 短くしたり できないよ。<br>できない時は「きょう」タブの「↪ あした」へ 回そう。</div>'
     : '';
@@ -420,25 +425,30 @@ function renderPlan() {
         <button data-act="plankey" data-key="${t}" class="${key === t ? 'on' : ''}">きょう ${C.fmtJa(t)}</button>
         <button data-act="plankey" data-key="${tm}" class="${key === tm ? 'on' : ''}">あした ${C.fmtJa(tm)}</button>
       </div>
-      <div class="label">日の しゅるい</div>
+      <div class="label">日の しゅるい（時間帯の 表示）</div>
       <div class="seg">${Object.entries(C.DAY_TYPES).map(([k, v]) =>
         `<button data-act="daytype" data-type="${k}" class="${day.type === k ? 'on' : ''}">${v.emoji} ${v.name}</button>`).join('')}</div>
-      <div class="btns"><button class="btn-primary" data-act="loadtpl" ${hasLocked ? 'disabled' : ''}>📋 「${C.DAY_TYPES[day.type].name}」の テンプレートを 読みこむ</button></div>
+      <div class="label">📋 テンプレート（曜日ごと）</div>
+      <div class="seg dow7">${C.DOW_ORDER.map(d =>
+        `<button data-act="pltpldow" data-dow="${d}" class="${d === tplDow ? 'on' : ''}">${C.DOW_JA[d]}</button>`).join('')}</div>
+      <div class="btns">
+        <button class="btn-primary" data-act="loadtpl" ${hasLocked ? 'disabled' : ''}>📋 ${C.DOW_JA[tplDow]}曜日の テンプレートを 読みこむ（${(sch.templates[tplDow] || []).length}コマ）</button>
+        <button data-act="savetpl">💾 この計画を ${C.DOW_JA[tplDow]}曜日に 保存</button>
+      </div>
       <div class="label">🗣 ${isTomorrow ? 'あした' : 'きょう'}の 目標・ひとこと（じぶんで せんげん！）</div>
       <input class="goal-input" data-act="goal" maxlength="40" enterkeyhint="done" value="${escapeHtml(day.goal || '')}" placeholder="れい：計算は ていねいに 全問正解！">
       ${bonus}
       ${lockNote}
     </div>
-    ${renderEditor(day.blocks, false, day.type)}`;
+    ${renderEditor(day.blocks, false, C.DAY_TYPES[day.type].bands)}`;
 }
 
-function renderEditor(blocks, isTpl, type) {
+function renderEditor(blocks, isTpl, bands) {
   const sorted = [...blocks].sort((a, b) => a.start - b.start);
   const overlap = new Set();
   for (let i = 1; i < sorted.length; i++) {
     if (sorted[i].start < sorted[i - 1].start + sorted[i - 1].dur) { overlap.add(sorted[i].id); overlap.add(sorted[i - 1].id); }
   }
-  const bands = C.DAY_TYPES[type].bands;
   const row = b => {
     const t = C.task(b.task);
     const bd = bands && bands.find(x => b.start >= x.from && b.start < x.to);
@@ -497,13 +507,12 @@ function renderEditor(blocks, isTpl, type) {
       <div class="palette">${palette(true)}</div>
       <div class="label">🕒 そのほかの よてい（ポイントなし）</div>
       <div class="palette">${palette(false)}</div>
-      ${isTpl ? '' : '<div class="btns"><button data-act="savetpl">💾 この計画を テンプレートとして 保存</button></div>'}
     </div>`;
 }
 
 // 計画（その日 or テンプレート）のコマを書きかえる共通口
 function targetBlocks(s) {
-  return isTplMode() ? s.templates[ui.tplType] : C.ensureDay(s, planKey()).blocks;
+  return isTplMode() ? s.templates[ui.tplDow] : C.ensureDay(s, planKey()).blocks;
 }
 function editBlocks(fn) {
   const bonus = mutate(s => {
@@ -516,8 +525,8 @@ function editBlocks(fn) {
   if (bonus) showToast(`📝 計画ボーナス！\nあしたの計画を 立てた +${bonus}G`, true);
   render();
 }
-function currentType() {
-  return isTplMode() ? ui.tplType : viewDay(planKey()).type;
+function currentBands() {
+  return isTplMode() ? C.tplBands(ui.tplDow) : C.DAY_TYPES[viewDay(planKey()).type].bands;
 }
 // コマを足す時間帯。えらんでいなければ、のこり時間がある最初の時間帯
 function addBandIndex(blocks, bands) {
@@ -527,7 +536,7 @@ function addBandIndex(blocks, bands) {
 }
 function addBlock(taskId) {
   const t = C.task(taskId);
-  const bands = C.DAY_TYPES[currentType()].bands;
+  const bands = currentBands();
   let overflow = null;
   editBlocks(blocks => {
     const dur = t.def || 30;
@@ -595,29 +604,33 @@ function openEdit(id) {
 }
 function loadTemplate() {
   const key = planKey();
-  const type = viewDay(key).type;
+  const dow = planTplDow(key);
   if (viewDay(key).blocks.some(b => C.isLocked(key, b))) {
     showToast('🔒 前の日に 決めた 勉強コマが あるので\nきょうは テンプレートを 読みこめないよ');
+    return;
+  }
+  if (!(sch.templates[dow] || []).length) {
+    showToast(`${C.DOW_JA[dow]}曜日の テンプレートは まだ からっぽだよ\n「💾 この計画を ${C.DOW_JA[dow]}曜日に 保存」か「⚙ せってい」で 作ってね`);
     return;
   }
   const apply = () => {
     editBlocks((blocks, s) => {
       const day = C.ensureDay(s, key);
-      day.blocks = s.templates[type].map(b => ({ id: C.newId(), task: b.task, start: b.start, dur: b.dur, done: false, via: null, actualSec: 0, createdOn: C.today() }));
+      day.blocks = s.templates[dow].map(b => ({ id: C.newId(), task: b.task, start: b.start, dur: b.dur, done: false, via: null, actualSec: 0, createdOn: C.today() }));
     });
-    showToast(`📋 「${C.DAY_TYPES[type].name}」を 読みこんだよ`);
+    showToast(`📋 ${C.DOW_JA[dow]}曜日の テンプレートを 読みこんだよ`);
   };
   if (viewDay(key).blocks.length) showConfirm('テンプレートを 読みこむ？', 'いまの コマは 消えて、テンプレートに 入れかわるよ', apply);
   else apply();
 }
 function saveAsTemplate() {
   const key = planKey();
-  const type = viewDay(key).type;
-  showConfirm(`「${C.DAY_TYPES[type].name}」の テンプレートに 保存？`, 'いまの テンプレートは この計画で 上書きされるよ', () => {
+  const dow = planTplDow(key);
+  showConfirm(`${C.DOW_JA[dow]}曜日の テンプレートに 保存？`, `いまの ${C.DOW_JA[dow]}曜日の テンプレートは この計画で 上書きされるよ`, () => {
     mutate(s => {
-      s.templates[type] = C.ensureDay(s, key).blocks.map(b => ({ id: C.newId(), task: b.task, start: b.start, dur: b.dur }));
+      s.templates[dow] = C.ensureDay(s, key).blocks.map(b => ({ id: C.newId(), task: b.task, start: b.start, dur: b.dur }));
     });
-    showToast('💾 テンプレートを 保存したよ');
+    showToast(`💾 ${C.DOW_JA[dow]}曜日の テンプレートに 保存したよ`);
     render();
   });
 }
@@ -776,12 +789,12 @@ function renderSettings() {
   const streakRules = Object.entries(C.STREAK_REWARDS).map(([d, g]) => `${d}日 +${g}G`).join('、');
   return `
     <div class="panel">
-      <div class="panel-title">▼ テンプレートを へんしゅう</div>
-      <div class="seg">${Object.entries(C.DAY_TYPES).map(([k, v]) =>
-        `<button data-act="tpl" data-type="${k}" class="${ui.tplType === k ? 'on' : ''}">${v.emoji} ${v.name}</button>`).join('')}</div>
-      <div class="small mt8">月〜金は「平日」、土日は「休日」が じどうで えらばれるよ（祝日は 計画のときに 切りかえてね）。塾の日は 平日の計画に「🏫 塾」の コマを 入れよう</div>
+      <div class="panel-title">▼ テンプレートを へんしゅう（曜日ごと）</div>
+      <div class="seg dow7">${C.DOW_ORDER.map(d =>
+        `<button data-act="tpl" data-dow="${d}" class="${ui.tplDow === d ? 'on' : ''}">${C.DOW_JA[d]}<span class="cnt">${(sch.templates[d] || []).length}</span></button>`).join('')}</div>
+      <div class="small mt8">曜日ごとに ちがう テンプレートを 作れるよ（数字は コマの 数）。計画の 画面では その日の 曜日の テンプレートが えらばれる。祝日は 計画の ときに 日曜などを えらんで 読みこもう</div>
     </div>
-    ${ui.tplType ? renderEditor(sch.templates[ui.tplType], true, ui.tplType) : ''}
+    ${ui.tplDow != null ? renderEditor(sch.templates[ui.tplDow] || [], true, C.tplBands(ui.tplDow)) : ''}
     <div class="panel">
       <div class="panel-title">▼ 📮 スタンプカード（★1いじょうの日に 1こ）</div>
       <div class="stamps">${slots}</div>
@@ -841,13 +854,14 @@ document.getElementById('app').addEventListener('click', e => {
   const id = el.dataset.id;
   switch (el.dataset.act) {
     case 'rpg': location.href = 'index.html'; break;
-    case 'tab': ui.tab = el.dataset.tab; ui.tplType = null; render(); window.scrollTo(0, 0); break;
+    case 'tab': ui.tab = el.dataset.tab; ui.tplDow = null; render(); window.scrollTo(0, 0); break;
     case 'toggle': toggleDone(id); break;
     case 'check-other': toggleOther(id); break;
     case 'start': startTimer(id); break;
     case 'carry': carryBlock(id); break;
-    case 'goplan': ui.tab = 'plan'; ui.planKey = el.dataset.key; render(); window.scrollTo(0, 0); break;
-    case 'plankey': ui.planKey = el.dataset.key; render(); break;
+    case 'goplan': ui.tab = 'plan'; ui.planKey = el.dataset.key; ui.planTplDow = null; render(); window.scrollTo(0, 0); break;
+    case 'plankey': ui.planKey = el.dataset.key; ui.planTplDow = null; render(); break;
+    case 'pltpldow': ui.planTplDow = Number(el.dataset.dow); render(); break;
     case 'daytype': mutate(s => { C.ensureDay(s, planKey()).type = el.dataset.type; }); render(); break;
     case 'loadtpl': loadTemplate(); break;
     case 'savetpl': saveAsTemplate(); break;
@@ -856,7 +870,7 @@ document.getElementById('app').addEventListener('click', e => {
     case 'edit': openEdit(id); break;
     case 'smode': ui.statsMode = el.dataset.mode; render(); break;
     case 'snav': statsNav(Number(el.dataset.dir)); break;
-    case 'tpl': ui.tplType = ui.tplType === el.dataset.type ? null : el.dataset.type; render(); break;
+    case 'tpl': { const d = Number(el.dataset.dow); ui.tplDow = ui.tplDow === d ? null : d; render(); break; }
   }
 });
 document.getElementById('app').addEventListener('input', e => {
