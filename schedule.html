@@ -205,11 +205,11 @@ hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 
-<script src="schedule-core.js?v=5"></script>
+<script src="schedule-core.js?v=6"></script>
 <script>
 // 公開サーバー(GitHub Pages)はファイルごとに最大10分キャッシュされ、このページと schedule-core.js の版がずれることがある。
 // ずれたままだと無い関数を呼んでボタンが反応しなくなるので、1回だけキャッシュを避けて読み直す
-const CORE_VERSION = 5;
+const CORE_VERSION = 6;
 (() => {
   let reloaded = false;
   try { reloaded = sessionStorage.getItem('sch-core-reload') === '1'; } catch (e) {}
